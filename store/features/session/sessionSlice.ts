@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { SessionState } from "@/types/workspace";
+import { sendConversationMessage } from "@/store/features/conversation/conversationThunks";
 
 export const initialSessionState: SessionState = {
   sessionId: null,
@@ -34,12 +35,20 @@ const sessionSlice = createSlice({
     ) {
       state.hydrationStatus = action.payload;
     },
+    touchSession(state, action: PayloadAction<string>) {
+      state.updatedAt = action.payload;
+    },
     resetSession() {
       return {
         ...initialSessionState,
         hydrationStatus: "ready" as const,
       };
     },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(sendConversationMessage.fulfilled, (state, action) => {
+      state.updatedAt = action.payload.assistantMessage.createdAt;
+    });
   },
 });
 
@@ -48,6 +57,7 @@ export const {
   hydrateSession,
   resetSession,
   setHydrationStatus,
+  touchSession,
 } = sessionSlice.actions;
 
 export const sessionReducer = sessionSlice.reducer;

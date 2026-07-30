@@ -32,7 +32,7 @@ export interface SessionState {
   hydrationStatus: HydrationStatus;
 }
 
-export type WorkspaceMode = "empty" | "initiated";
+export type WorkspaceMode = "empty" | "active";
 
 export type DiscoveryStage =
   | "context"
@@ -47,29 +47,61 @@ export interface WorkspaceState {
   discoveryStage: DiscoveryStage;
 }
 
+export type MessageSender = "user" | "assistant";
+export type MessageStatus = "pending" | "sent" | "failed";
+export type RequestStatus = "idle" | "pending" | "failed";
+
+export interface ConversationMessage {
+  id: string;
+  sender: MessageSender;
+  content: string;
+  createdAt: string;
+  status: MessageStatus;
+}
+
 export interface LocalUserMessage {
   id: string;
   content: string;
   createdAt: string;
 }
 
-export interface ConversationState {
-  draft: string;
-  firstMessage: LocalUserMessage | null;
+export interface FailedRequest {
+  messageId: string;
+  message: string;
 }
 
-export type BriefSectionStatus = "available" | "current" | "pending";
+export interface ConversationState {
+  draft: string;
+  messages: ConversationMessage[];
+  requestStatus: RequestStatus;
+  pendingRequestId: string | null;
+  failedRequest: FailedRequest | null;
+}
 
-export type BriefSectionKey =
-  | "businessContext"
-  | "primaryChallenge"
-  | "currentWorkflow"
-  | "requirements"
-  | "recommendedDirection"
-  | "openQuestions"
-  | "nextStep";
+export type BriefSectionStatus = "complete" | "current" | "pending";
+
+export interface BriefField<T> {
+  value: T;
+  status: BriefSectionStatus;
+}
 
 export interface BriefState {
-  status: "not_started";
-  sections: Record<BriefSectionKey, BriefSectionStatus>;
+  status: BriefSectionStatus;
+  businessContext: BriefField<string | null>;
+  primaryChallenge: BriefField<string | null>;
+  currentWorkflow: BriefField<string[]>;
+  requirements: BriefField<string[]>;
+  recommendedDirection: BriefField<string | null>;
+  openQuestions: BriefField<string[]>;
+  nextStep: BriefField<string | null>;
+}
+
+export interface BriefPatch {
+  businessContext?: string;
+  primaryChallenge?: string;
+  currentWorkflow?: string[];
+  requirements?: string[];
+  openQuestions?: string[];
+  recommendedDirection?: string;
+  nextStep?: string;
 }

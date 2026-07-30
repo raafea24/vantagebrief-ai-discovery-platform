@@ -24,7 +24,7 @@ const persistedSessionSchema = z.object({
 });
 
 const persistedWorkspaceUiSchema = z.object({
-  mode: z.enum(["empty", "initiated"]),
+  mode: z.enum(["empty", "active"]),
   discoveryStage: z.enum([
     "context",
     "challenge",
@@ -35,37 +35,124 @@ const persistedWorkspaceUiSchema = z.object({
   ]),
 });
 
+const legacyWorkspaceUiSchema = z
+  .object({
+    mode: z.enum(["empty", "initiated"]),
+    discoveryStage: persistedWorkspaceUiSchema.shape.discoveryStage,
+  })
+  .transform((workspace): WorkspaceState => ({
+    mode: workspace.mode === "initiated" ? "active" : "empty",
+    discoveryStage: workspace.discoveryStage,
+  }));
+
+const persistedMessageSchema = z.object({
+  id: z.uuid(),
+  sender: z.enum(["user", "assistant"]),
+  content: z.string().trim().min(1).max(4000),
+  createdAt: z.iso.datetime(),
+  status: z.enum(["sent", "failed"]),
+});
+
 const persistedConversationSchema = z.object({
   draft: z.string().max(4000),
-  firstMessage: z
+  messages: z.array(persistedMessageSchema).max(200),
+  requestStatus: z.enum(["idle", "failed"]),
+  pendingRequestId: z.null(),
+  failedRequest: z
     .object({
-      id: z.uuid(),
-      content: z.string().trim().min(1).max(4000),
-      createdAt: z.iso.datetime(),
+      messageId: z.uuid(),
+      message: z.string().min(1).max(300),
     })
     .nullable(),
 });
 
-const persistedBriefSchema = z.object({
-  status: z.literal("not_started"),
-  sections: z.object({
-    businessContext: z.literal("available"),
-    primaryChallenge: z.enum(["current", "pending"]),
-    currentWorkflow: z.literal("pending"),
-    requirements: z.literal("pending"),
-    recommendedDirection: z.literal("pending"),
-    openQuestions: z.literal("pending"),
-    nextStep: z.literal("pending"),
-  }),
+const legacyConversationSchema = z
+  .object({
+    draft: z.string().max(4000),
+    firstMessage: z
+      .object({
+        id: z.uuid(),
+        content: z.string().trim().min(1).max(4000),
+        createdAt: z.iso.datetime(),
+      })
+      .nullable(),
+  })
+  .transform(
+    (conversation): ConversationState => ({
+      draft: conversation.draft,
+      messages: conversation.firstMessage
+        ? [
+            {
+              ...conversation.firstMessage,
+              sender: "user",
+              status: "sent",
+            },
+          ]
+        : [],
+      requestStatus: "idle",
+      pendingRequestId: null,
+      failedRequest: null,
+    }),
+  );
+
+const briefStatusSchema = z.enum(["complete", "current", "pending"]);
+const nullableTextFieldSchema = z.object({
+  value: z.string().max(4000).nullable(),
+  status: briefStatusSchema,
 });
+const listFieldSchema = z.object({
+  value: z.array(z.string().max(1000)).max(30),
+  status: briefStatusSchema,
+});
+
+const persistedBriefSchema = z.object({
+  status: briefStatusSchema,
+  businessContext: nullableTextFieldSchema,
+  primaryChallenge: nullableTextFieldSchema,
+  currentWorkflow: listFieldSchema,
+  requirements: listFieldSchema,
+  recommendedDirection: nullableTextFieldSchema,
+  openQuestions: listFieldSchema,
+  nextStep: nullableTextFieldSchema,
+});
+
+const legacyBriefSchema = z
+  .object({
+    status: z.literal("not_started"),
+    sections: z.object({
+      businessContext: z.literal("available"),
+      primaryChallenge: z.enum(["current", "pending"]),
+      currentWorkflow: z.literal("pending"),
+      requirements: z.literal("pending"),
+      recommendedDirection: z.literal("pending"),
+      openQuestions: z.literal("pending"),
+      nextStep: z.literal("pending"),
+    }),
+  })
+  .transform(
+    (): BriefState => ({
+      status: "pending",
+      businessContext: { value: null, status: "complete" },
+      primaryChallenge: { value: null, status: "current" },
+      currentWorkflow: { value: [], status: "pending" },
+      requirements: { value: [], status: "pending" },
+      recommendedDirection: { value: null, status: "pending" },
+      openQuestions: { value: [], status: "pending" },
+      nextStep: { value: null, status: "pending" },
+    }),
+  );
 
 const persistedWorkspaceSchema = z.object({
   version: z.literal(1),
   user: persistedUserSchema,
   session: persistedSessionSchema,
-  workspace: persistedWorkspaceUiSchema.optional(),
-  conversation: persistedConversationSchema.optional(),
-  brief: persistedBriefSchema.optional(),
+  workspace: z
+    .union([persistedWorkspaceUiSchema, legacyWorkspaceUiSchema])
+    .optional(),
+  conversation: z
+    .union([persistedConversationSchema, legacyConversationSchema])
+    .optional(),
+  brief: z.union([persistedBriefSchema, legacyBriefSchema]).optional(),
 });
 
 export interface PersistedWorkspaceState {
@@ -114,12 +201,33 @@ function createPersistedWorkspace(
     return null;
   }
 
+  const interruptedMessage = state.conversation.messages.find(
+    (message) => message.status === "pending",
+  );
+  const failedRequest =
+    state.conversation.failedRequest ??
+    (interruptedMessage
+      ? {
+          messageId: interruptedMessage.id,
+          message:
+            "The previous request was interrupted. Your message is preserved.",
+        }
+      : null);
   const candidate = {
     version: 1 as const,
     user: state.user,
     session: state.session,
     workspace: state.workspace,
-    conversation: state.conversation,
+    conversation: {
+      draft: state.conversation.draft,
+      messages: state.conversation.messages.map((message) => ({
+        ...message,
+        status: message.status === "pending" ? ("failed" as const) : message.status,
+      })),
+      requestStatus: failedRequest ? ("failed" as const) : ("idle" as const),
+      pendingRequestId: null,
+      failedRequest,
+    },
     brief: state.brief,
   };
   const result = persistedWorkspaceSchema.safeParse(candidate);
