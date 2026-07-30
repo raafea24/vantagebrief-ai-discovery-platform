@@ -1,17 +1,23 @@
+import { FinalCallToAction } from "@/components/landing/FinalCallToAction";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { LandingHeader } from "@/components/landing/LandingHeader";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
 import { ValueSection } from "@/components/landing/ValueSection";
 
 export default function HomePage() {
   return (
-    <main className="landing-shell">
+    <div className="landing-shell" id="top">
       <LandingHeader />
-      <HeroSection />
-      <ValueSection />
-      <HowItWorksSection />
-      <UseCasesSection />
-    </main>
+      <main>
+        <HeroSection />
+        <ValueSection />
+        <HowItWorksSection />
+        <UseCasesSection />
+        <FinalCallToAction />
+      </main>
+      <LandingFooter />
+    </div>
   );
 }
