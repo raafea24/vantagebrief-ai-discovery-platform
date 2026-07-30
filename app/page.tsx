@@ -1,4 +1,5 @@
 import { HeroSection } from "@/components/landing/HeroSection";
+import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { ValueSection } from "@/components/landing/ValueSection";
 
@@ -8,6 +9,7 @@ export default function HomePage() {
       <LandingHeader />
       <HeroSection />
       <ValueSection />
+      <HowItWorksSection />
     </main>
   );
 }

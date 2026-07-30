@@ -44,6 +44,13 @@ Do not:
 
 When a reference image is provided, use it only for the currently requested screen. Do not interpret a combined concept board as one page.
 
+## Landing-Page CTA Placement
+
+- Do not repeat CTA banners or “Start a Brief” buttons after every landing-page section.
+- Primary CTAs belong only in the header, hero, and final CTA section unless explicitly requested.
+- Intermediate sections such as Core Business Value, How It Works, and Use Cases must remain clean and self-contained.
+- Never copy an unnecessary CTA from a reference image.
+
 ## Product Experience
 
 Every implementation decision should support this core journey:
