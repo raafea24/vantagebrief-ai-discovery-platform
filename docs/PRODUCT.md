@@ -186,7 +186,27 @@ The landing page explains:
 The user then selects the primary action:
 
 ```text
-Start discovery
+Start a Brief
+```
+
+The Phase 2 landing page contains:
+
+- Hero with the focused product preview
+- Core Business Value
+- How It Works
+- Use Cases
+- Final CTA
+- Footer
+
+There is no separate Product Preview section. The hero contains the landing-page product preview.
+
+The final landing navigation contains:
+
+- How It Works
+- Use Cases
+- Start a Brief
+
+About, Contact, Support, Privacy Policy, Terms of Use, and Cookie Policy are deferred to Phase 7. Until those destinations exist, they must not link to empty or missing routes.
 
 # VantageBrief Product Specification
 
@@ -376,4 +396,24 @@ The landing page explains:
 The user then selects the primary action:
 
 ```text
-Start discovery
+Start a Brief
+```
+
+The Phase 2 landing page contains:
+
+- Hero with the focused product preview
+- Core Business Value
+- How It Works
+- Use Cases
+- Final CTA
+- Footer
+
+There is no separate Product Preview section. The hero contains the landing-page product preview.
+
+The final landing navigation contains:
+
+- How It Works
+- Use Cases
+- Start a Brief
+
+About, Contact, Support, Privacy Policy, Terms of Use, and Cookie Policy are deferred to Phase 7. Until those destinations exist, they must not link to empty or missing routes.

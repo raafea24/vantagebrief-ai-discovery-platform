@@ -13,9 +13,9 @@ Codex must not begin a later phase, add future features, or redesign an approved
 # Current Project Status
 
 ```text
-Current phase: Phase 1 — Project Foundation
-Current screen: None
-Implementation status: Not started
+Current phase: Phase 2 — Premium Landing Page
+Current screen: Final CTA and Footer
+Implementation status: Implemented — awaiting approval and merge
 Production deployment: Not started
 n8n workflow status: Functional and published
 ```
@@ -344,16 +344,14 @@ Implement one screen or section at a time.
 ## Implementation order
 
 ```text
-2.1 Landing header
-2.2 Hero first viewport
-2.3 Core business value
-2.4 How it works
-2.5 Use cases
-2.6 Product preview
-2.7 Final CTA
-2.8 Footer
-2.9 Responsive refinement
-2.10 Landing-page testing
+2.1 Landing header and hero
+2.2 Core business value
+2.3 How it works
+2.4 Use cases
+2.5 Final CTA
+2.6 Footer
+2.7 Responsive refinement
+2.8 Landing-page testing
 ```
 
 Each major section should be reviewed before the next section is implemented.
@@ -365,9 +363,18 @@ Each major section should be reviewed before the next section is implemented.
 Include:
 
 - VantageBrief wordmark
-- How it works
-- Use cases
-- Start discovery
+- How It Works
+- Use Cases
+- Start a Brief
+
+Destinations:
+
+```text
+Logo → /#top
+How It Works → /#how-it-works
+Use Cases → /#use-cases
+Start a Brief → /workspace
+```
 
 Requirements:
 
@@ -481,30 +488,32 @@ Each card or section must describe the result for the user.
 
 ---
 
-## Product preview section
-
-Show a larger representation of:
-
-- Discovery conversation
-- Structured Opportunity Brief
-- Progress
-- Email action
-
-The preview must still remain a marketing demonstration rather than the functioning workspace.
-
----
-
 ## Final CTA
 
-Approved direction:
+Approved heading:
 
-> A better first conversation leads to a better solution.
+> Turn the conversation into your next move.
 
 Primary action:
 
 ```text
-Open VantageBrief
+Start a Brief
 ```
+
+---
+
+## Footer
+
+Include:
+
+- Shared VantageBrief wordmark and tagline
+- Product links for How It Works, Use Cases, and Start a Brief
+- Deferred Company and Legal items marked Coming soon
+- Deferred LinkedIn presence without an invented URL
+- Dynamic copyright year
+- “Built for better business conversations.”
+
+About, Contact, Support, and legal routes remain deferred to Phase 7.
 
 ---
 

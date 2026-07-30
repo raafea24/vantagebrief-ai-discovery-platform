@@ -58,7 +58,11 @@ const useCases = [
 
 export function UseCasesSection() {
   return (
-    <section className="use-cases-section" aria-labelledby="use-cases-heading">
+    <section
+      className="use-cases-section"
+      id="use-cases"
+      aria-labelledby="use-cases-heading"
+    >
       <div className="landing-container">
         <header className="use-cases-section__header">
           <p className="use-cases-section__eyebrow">Use Cases</p>

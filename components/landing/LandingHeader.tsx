@@ -1,22 +1,17 @@
 import { ArrowUpRight, Menu } from "lucide-react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/landing/BrandLogo";
 
 const navigationLinks = [
-  { href: "#discovery-preview", label: "How It Works" },
-  { href: "#capabilities", label: "Use Cases" },
-  { href: "#about", label: "About" },
+  { href: "/#how-it-works", label: "How It Works" },
+  { href: "/#use-cases", label: "Use Cases" },
 ];
 
 export function LandingHeader() {
   return (
     <header className="landing-header">
       <div className="landing-container landing-header__inner">
-        <Link className="wordmark" href="/" aria-label="VantageBrief home">
-          <span className="wordmark__mark" aria-hidden="true">
-            V
-          </span>
-          <span>VantageBrief</span>
-        </Link>
+        <BrandLogo />
 
         <nav className="landing-nav" aria-label="Primary navigation">
           {navigationLinks.map((link) => (

@@ -38,7 +38,11 @@ const stages = [
 
 export function HowItWorksSection() {
   return (
-    <section className="process-section" aria-labelledby="process-heading">
+    <section
+      className="process-section"
+      id="how-it-works"
+      aria-labelledby="process-heading"
+    >
       <div className="landing-container">
         <header className="process-section__header">
           <p className="process-section__eyebrow">
