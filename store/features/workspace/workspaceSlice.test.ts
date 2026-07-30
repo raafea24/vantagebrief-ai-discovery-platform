@@ -6,11 +6,11 @@ import {
 } from "./workspaceSlice";
 
 describe("workspaceSlice", () => {
-  it("transitions the local workspace into the initiated mode", () => {
+  it("transitions the local workspace into active mode", () => {
     expect(
-      workspaceReducer(initialWorkspaceState, setWorkspaceMode("initiated")),
+      workspaceReducer(initialWorkspaceState, setWorkspaceMode("active")),
     ).toEqual({
-      mode: "initiated",
+      mode: "active",
       discoveryStage: "challenge",
     });
   });

@@ -668,50 +668,39 @@ Manage messages and conversation-level state.
 ## Message type
 
 ```typescript
-type MessageRole = "user" | "assistant" | "system";
+type MessageSender = "user" | "assistant";
 
-interface ChatMessage {
+interface ConversationMessage {
   id: string;
-  role: MessageRole;
+  sender: MessageSender;
   content: string;
   createdAt: string;
-  status:
-    | "pending"
-    | "sent"
-    | "received"
-    | "failed";
+  status: "pending" | "sent" | "failed";
 }
 ```
-
-The `system` role should not normally be rendered to users.
 
 ## State shape
 
 ```typescript
 interface ConversationState {
-  messages: ChatMessage[];
-  activeRequestId: string | null;
-  status:
-    | "idle"
-    | "sending"
-    | "receiving"
-    | "failed";
-  error: PublicError | null;
-  lastSuccessfulMessageAt: string | null;
+  draft: string;
+  messages: ConversationMessage[];
+  requestStatus: "idle" | "pending" | "failed";
+  pendingRequestId: string | null;
+  failedRequest: {
+    messageId: string;
+    message: string;
+  } | null;
 }
 ```
 
 ## Actions
 
 ```text
-addOptimisticUserMessage
-confirmUserMessage
-addAssistantMessage
-markMessageFailed
-retryMessage
-setConversationStatus
-setConversationError
-clearConversation
+setMessageDraft
+sendConversationMessage
+clearConversationError
+resetConversation
 hydrateConversation
 ```
 
@@ -731,75 +720,51 @@ Store structured business information returned by the backend.
 
 ```typescript
 interface OpportunityBrief {
-  businessContext: BriefField;
-  primaryObjective: BriefField;
-  currentChallenge: BriefField;
-  existingWorkflow: BriefField;
-  toolsAndIntegrations: BriefListField;
-  recommendedDirection: BriefField;
-  expectedOperationalValue: BriefListField;
-  openQuestions: BriefListField;
-  recommendedNextStep: BriefField;
-  updatedAt: string | null;
+  businessContext: BriefField<string | null>;
+  primaryChallenge: BriefField<string | null>;
+  currentWorkflow: BriefField<string[]>;
+  requirements: BriefField<string[]>;
+  recommendedDirection: BriefField<string | null>;
+  openQuestions: BriefField<string[]>;
+  nextStep: BriefField<string | null>;
 }
 ```
 
 ## Brief field
 
 ```typescript
-interface BriefField {
-  status: "not_identified" | "in_progress" | "identified";
-  value: string | null;
-}
-```
-
-## Brief list field
-
-```typescript
-interface BriefListField {
-  status: "not_identified" | "in_progress" | "identified";
-  values: string[];
+interface BriefField<T> {
+  status: "pending" | "current" | "complete";
+  value: T;
 }
 ```
 
 ## Discovery progress
 
 ```typescript
-interface DiscoveryProgress {
-  context: DiscoveryStageStatus;
-  challenge: DiscoveryStageStatus;
-  workflow: DiscoveryStageStatus;
-  requirements: DiscoveryStageStatus;
-  direction: DiscoveryStageStatus;
-  brief: DiscoveryStageStatus;
-}
-```
-
-```typescript
-type DiscoveryStageStatus =
-  | "not_started"
-  | "in_progress"
-  | "identified";
+type DiscoveryStage =
+  | "context"
+  | "challenge"
+  | "workflow"
+  | "requirements"
+  | "direction"
+  | "brief";
 ```
 
 ## State shape
 
 ```typescript
 interface BriefState {
-  brief: OpportunityBrief;
-  progress: DiscoveryProgress;
-  status: "empty" | "updating" | "ready";
-  error: PublicError | null;
+  status: "pending" | "current" | "complete";
+  // OpportunityBrief fields
 }
 ```
 
 ## Actions
 
 ```text
-updateBrief
-updateProgress
-setBriefStatus
-clearBrief
+apply typed brief patch from sendConversationMessage
+resetBrief
 hydrateBrief
 ```
 
@@ -939,6 +904,30 @@ Its only destination is:
 ```text
 /api/chat
 ```
+
+---
+
+# Phase 4 Temporary Chat Transport
+
+During Phase 4, workspace components dispatch typed conversation actions
+without knowing which transport produces the response.
+
+The transport contract returns:
+
+```typescript
+interface ChatTransportResult {
+  reply: string;
+  briefPatch?: BriefPatch;
+}
+```
+
+Development and test environments load a deterministic mock adapter through
+this interface. Production does not load or execute the mock adapter. Phase 5
+will replace the transport implementation with the secured `/api/chat` RTK
+Query path without changing the conversation components.
+
+The temporary adapter must not call n8n, Gemini, Gmail, or any external
+provider, and mock-mode wording must not appear in the product interface.
 
 ---
 

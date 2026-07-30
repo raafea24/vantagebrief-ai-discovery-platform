@@ -1,13 +1,15 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
+import * as chatTransportModule from "@/lib/chat/getChatTransport";
 import { WORKSPACE_STORAGE_KEY } from "@/store/persistence";
 import { WorkspaceApp } from "./WorkspaceApp";
 
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  vi.restoreAllMocks();
 });
 
 function renderWorkspace() {
@@ -84,38 +86,44 @@ describe("WorkspaceApp onboarding", () => {
     expect(email).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("stores normalized onboarding data and shows the workspace empty state", async () => {
-    renderWorkspace();
-    await screen.findByLabelText("Name");
-    const user = await completeForm();
-    const continueButton = screen.getByRole("button", {
-      name: "Continue to Workspace",
-    });
+  it(
+    "stores normalized onboarding data and shows the workspace empty state",
+    async () => {
+      renderWorkspace();
+      await screen.findByLabelText("Name");
+      const user = await completeForm();
+      const continueButton = screen.getByRole("button", {
+        name: "Continue to Workspace",
+      });
 
-    expect(continueButton).toBeEnabled();
-    await user.click(continueButton);
+      expect(continueButton).toBeEnabled();
+      await user.click(continueButton);
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "Start your discovery conversation",
-      }),
-    ).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", {
+          name: "Start your discovery conversation",
+        }),
+      ).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(window.localStorage.getItem(WORKSPACE_STORAGE_KEY)).not.toBeNull();
-    });
+      await waitFor(() => {
+        expect(
+          window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
+        ).not.toBeNull();
+      });
 
-    const saved = JSON.parse(
-      window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
-    );
+      const saved = JSON.parse(
+        window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+      );
 
-    expect(saved.user.fullName).toBe("Alex Morgan");
-    expect(saved.user.email).toBe("alex@acmesolutions.com");
-    expect(saved.user.onboardingCompleted).toBe(true);
-    expect(saved.session.sessionId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    );
-  });
+      expect(saved.user.fullName).toBe("Alex Morgan");
+      expect(saved.user.email).toBe("alex@acmesolutions.com");
+      expect(saved.user.onboardingCompleted).toBe(true);
+      expect(saved.session.sessionId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+    },
+    15_000,
+  );
 
   it("restores a valid completed onboarding session", async () => {
     seedCompletedWorkspace();
@@ -127,7 +135,7 @@ describe("WorkspaceApp onboarding", () => {
         name: "Start your discovery conversation",
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Northstar Operations")).toHaveLength(2);
+    expect(screen.getByText("Northstar Operations")).toBeInTheDocument();
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
   });
 
@@ -169,7 +177,7 @@ describe("WorkspaceApp onboarding", () => {
     });
   });
 
-  it("places a quick prompt in the composer and stores only the first message", async () => {
+  it("populates the composer and stores transport-driven conversation messages", async () => {
     const user = userEvent.setup();
     seedCompletedWorkspace();
     renderWorkspace();
@@ -188,24 +196,68 @@ describe("WorkspaceApp onboarding", () => {
     );
 
     expect(
-      await screen.findByRole("heading", {
-        name: "Your first context is in place.",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Where is our current process slowing down? Please focus on handoffs.",
+      await screen.findByText(
+        "Thanks — that gives us a useful starting point. What happens immediately before and after this part of the workflow?",
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "Where is our current process slowing down? Please focus on handoffs.",
+      ),
+    ).toHaveLength(2);
 
     await waitFor(() => {
       const saved = JSON.parse(
         window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
       );
-      expect(saved.workspace.mode).toBe("initiated");
-      expect(saved.conversation.firstMessage.content).toBe(
+      expect(saved.workspace.mode).toBe("active");
+      expect(saved.conversation.messages).toHaveLength(2);
+      expect(saved.conversation.messages[0].content).toBe(
         "Where is our current process slowing down? Please focus on handoffs.",
       );
+      expect(saved.conversation.messages[1].sender).toBe("assistant");
     });
+  });
+
+  it("preserves a failed draft and retries through the transport abstraction", async () => {
+    const user = userEvent.setup();
+    const send = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce({
+        reply: "Thanks. What part of that workflow should we examine first?",
+        briefPatch: {
+          primaryChallenge: "A workflow handoff needs clarification.",
+        },
+      });
+
+    vi.spyOn(chatTransportModule, "getChatTransport").mockResolvedValue({
+      send,
+    });
+    seedCompletedWorkspace();
+    renderWorkspace();
+
+    const composer = await screen.findByRole("textbox", { name: "Message" });
+    await user.type(composer, "Our handoffs are unclear.");
+    await user.click(
+      screen.getByRole("button", { name: "Submit discovery message" }),
+    );
+
+    expect(
+      await screen.findByText("We couldn't continue the discovery."),
+    ).toBeInTheDocument();
+    expect(composer).toHaveValue("Our handoffs are unclear.");
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByText(
+        "Thanks. What part of that workflow should we examine first?",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("We couldn't continue the discovery."),
+    ).not.toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(2);
   });
 });

@@ -4,6 +4,7 @@ import type {
   WorkspaceMode,
   WorkspaceState,
 } from "@/types/workspace";
+import { sendConversationMessage } from "@/store/features/conversation/conversationThunks";
 
 export const initialWorkspaceState: WorkspaceState = {
   mode: "empty",
@@ -26,6 +27,25 @@ const workspaceSlice = createSlice({
     resetWorkspace() {
       return initialWorkspaceState;
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(sendConversationMessage.pending, (state) => {
+        state.mode = "active";
+      })
+      .addCase(sendConversationMessage.fulfilled, (state, action) => {
+        const patch = action.payload.briefPatch;
+
+        if (patch?.recommendedDirection) {
+          state.discoveryStage = "direction";
+        } else if (patch?.requirements?.length) {
+          state.discoveryStage = "requirements";
+        } else if (patch?.currentWorkflow?.length) {
+          state.discoveryStage = "workflow";
+        } else {
+          state.discoveryStage = "challenge";
+        }
+      });
   },
 });
 
