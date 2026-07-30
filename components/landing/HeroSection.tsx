@@ -32,12 +32,12 @@ export function HeroSection() {
 
           <div className="hero__actions">
             <Link className="hero__primary-action" href="/workspace">
-              Start discovery
+              Start a Brief
               <ArrowRight aria-hidden="true" size={19} strokeWidth={1.8} />
             </Link>
             <Link className="hero__secondary-action" href="#discovery-preview">
               <CirclePlay aria-hidden="true" size={20} strokeWidth={1.6} />
-              See how it works
+              See How It Works
             </Link>
           </div>
 
