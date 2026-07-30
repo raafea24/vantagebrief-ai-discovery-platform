@@ -963,7 +963,7 @@ html {
 .use-cases-collage {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: repeat(3, minmax(10.25rem, auto)) minmax(11rem, auto);
+  grid-template-rows: repeat(2, minmax(14.25rem, auto)) minmax(12.5rem, auto);
   gap: var(--space-4);
   margin: clamp(3.5rem, 6vw, 5.5rem) 0 0;
   padding: 0;
@@ -982,7 +982,7 @@ html {
 
 .use-case-panel--01 {
   grid-column: 1 / 8;
-  grid-row: 1 / 4;
+  grid-row: 1 / 3;
 }
 
 .use-case-panel--02 {
@@ -992,22 +992,22 @@ html {
 
 .use-case-panel--03 {
   grid-column: 8 / 13;
-  grid-row: 2 / 4;
+  grid-row: 2 / 3;
 }
 
 .use-case-panel--04 {
   grid-column: 1 / 5;
-  grid-row: 4 / 5;
+  grid-row: 3 / 4;
 }
 
 .use-case-panel--05 {
   grid-column: 5 / 9;
-  grid-row: 4 / 5;
+  grid-row: 3 / 4;
 }
 
 .use-case-panel--06 {
   grid-column: 9 / 13;
-  grid-row: 4 / 5;
+  grid-row: 3 / 4;
 }
 
 .use-case-panel__image {
@@ -1015,52 +1015,52 @@ html {
 }
 
 .use-case-panel--01 .use-case-panel__image {
-  object-position: 52% 54%;
+  object-position: 50% 52%;
 }
 
 .use-case-panel--02 .use-case-panel__image {
-  object-position: 62% 52%;
+  object-position: 58% 50%;
 }
 
 .use-case-panel--03 .use-case-panel__image {
-  object-position: 58% 52%;
+  object-position: 55% 50%;
 }
 
 .use-case-panel--04 .use-case-panel__image {
-  object-position: 60% 50%;
+  object-position: 54% 48%;
 }
 
 .use-case-panel--05 .use-case-panel__image {
-  object-position: 58% 48%;
+  object-position: 51% 46%;
 }
 
 .use-case-panel--06 .use-case-panel__image {
-  object-position: 56% 52%;
+  object-position: 59% 53%;
 }
 
 .use-case-panel__copy {
   position: relative;
   z-index: 1;
   display: flex;
-  width: min(45%, 18rem);
+  width: min(38%, 16.5rem);
   min-height: 100%;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(1.5rem, 3vw, 2.5rem);
+  padding: clamp(1.25rem, 2vw, 2rem);
   background: color-mix(in srgb, var(--color-surface) 95%, transparent);
   box-shadow: 12px 0 32px rgb(23 32 51 / 0.07);
 }
 
 .use-case-panel--02 .use-case-panel__copy,
 .use-case-panel--03 .use-case-panel__copy {
-  width: min(48%, 15rem);
+  width: min(40%, 12.5rem);
 }
 
 .use-case-panel--04 .use-case-panel__copy,
 .use-case-panel--05 .use-case-panel__copy,
 .use-case-panel--06 .use-case-panel__copy {
-  width: 64%;
-  padding: var(--space-6);
+  width: 44%;
+  padding: var(--space-5, 1.25rem);
 }
 
 .use-case-panel__copy > span:first-child {
@@ -1181,8 +1181,8 @@ html {
   .use-case-panel--04 .use-case-panel__copy,
   .use-case-panel--05 .use-case-panel__copy,
   .use-case-panel--06 .use-case-panel__copy {
-    width: 62%;
-    padding: var(--space-6);
+    width: 44%;
+    padding: var(--space-5, 1.25rem);
   }
 }
 
@@ -1258,7 +1258,7 @@ html {
   .use-case-panel--04 .use-case-panel__copy,
   .use-case-panel--05 .use-case-panel__copy,
   .use-case-panel--06 .use-case-panel__copy {
-    width: 68%;
+    width: 45%;
   }
 }
 
@@ -1535,8 +1535,8 @@ html {
   .use-case-panel--04 .use-case-panel__copy,
   .use-case-panel--05 .use-case-panel__copy,
   .use-case-panel--06 .use-case-panel__copy {
-    width: 72%;
-    padding: var(--space-6);
+    width: 45%;
+    padding: var(--space-5, 1.25rem);
   }
 
   .use-case-panel h3 {
