@@ -1,20 +1,36 @@
-import type {
-  BriefPatch,
-  ConversationMessage,
-  OnboardingProfile,
-} from "@/types/workspace";
+import type { BriefPatch, WorkspaceRole } from "@/types/workspace";
 
-export interface ChatTransportRequest {
+export interface ChatApiRequest {
+  message: string;
   sessionId: string;
-  user: OnboardingProfile;
-  messages: ConversationMessage[];
+  name: string;
+  email: string;
+  companyName: string;
+  role: WorkspaceRole;
+  initialChallenge: string;
 }
 
-export interface ChatTransportResult {
+export interface ChatApiResponse {
+  success: true;
+  type: "chat_response";
   reply: string;
+  sessionId: string;
   briefPatch?: BriefPatch;
 }
 
-export interface ChatTransport {
-  send(request: ChatTransportRequest): Promise<ChatTransportResult>;
+export type PublicChatErrorCode =
+  | "VALIDATION_ERROR"
+  | "NETWORK_ERROR"
+  | "SERVICE_UNAVAILABLE"
+  | "REQUEST_TIMEOUT"
+  | "UNKNOWN_ERROR";
+
+export interface PublicChatError {
+  code: PublicChatErrorCode;
+  message: string;
+  retryable: boolean;
+}
+
+export interface ChatApiErrorResponse {
+  error: PublicChatError;
 }

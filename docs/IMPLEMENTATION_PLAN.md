@@ -13,9 +13,9 @@ Codex must not begin a later phase, add future features, or redesign an approved
 # Current Project Status
 
 ```text
-Current phase: Phase 4 — Discovery Workspace
-Current screen: Active Discovery Conversation
-Implementation status: Implemented — awaiting approval and merge
+Current phase: Phase 5 — API and n8n Integration
+Current screen: Secure conversation request flow
+Implementation status: Implemented — awaiting environment configuration, live verification, approval, and merge
 Production deployment: Not started
 n8n workflow status: Functional and published
 ```
