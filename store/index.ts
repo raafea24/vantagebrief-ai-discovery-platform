@@ -1,9 +1,13 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { chatApi } from "@/store/api/chatApi";
+import { sessionReducer } from "@/store/features/session/sessionSlice";
+import { userReducer } from "@/store/features/user/userSlice";
 
 export const makeStore = () =>
   configureStore({
     reducer: {
+      user: userReducer,
+      session: sessionReducer,
       [chatApi.reducerPath]: chatApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>

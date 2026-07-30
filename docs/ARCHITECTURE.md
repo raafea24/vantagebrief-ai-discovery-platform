@@ -574,29 +574,31 @@ Store the validated onboarding identity.
 ```typescript
 interface UserState {
   fullName: string;
+  companyName: string;
   email: string;
-  startingIntent: StartingIntent | null;
+  role: WorkspaceRole;
+  challenge: string;
   onboardingCompleted: boolean;
 }
 ```
 
-## Starting intent values
+## Workspace role values
 
 ```typescript
-type StartingIntent =
-  | "automate_process"
-  | "explore_ai_solution"
-  | "improve_workflow"
-  | "plan_digital_product";
+type WorkspaceRole =
+  | "business_owner"
+  | "operations"
+  | "strategy_consulting"
+  | "sales_business_development"
+  | "product_technology"
+  | "other";
 ```
 
 ## Actions
 
 ```text
 setUserProfile
-setStartingIntent
 completeOnboarding
-updateEmail
 resetUser
 hydrateUser
 ```
@@ -653,7 +655,7 @@ A new session must:
 - Clear Opportunity Brief
 - Reset progress
 - Reset email state
-- Preserve user name and email by default
+- Preserve the validated user profile by default
 
 ---
 
@@ -1027,8 +1029,10 @@ Preserve the discovery experience after a browser refresh.
 Persist only:
 
 - User name
+- Business or company name
 - User email
-- Starting intent
+- Role
+- Initial business challenge or opportunity
 - Onboarding completion
 - Session ID
 - Session timestamps

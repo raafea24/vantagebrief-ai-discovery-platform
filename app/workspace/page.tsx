@@ -1,20 +1,12 @@
+import type { Metadata } from "next";
+import { WorkspaceApp } from "@/components/workspace/WorkspaceApp";
+
+export const metadata: Metadata = {
+  title: "Workspace | VantageBrief",
+  description:
+    "Share your business context and prepare a focused VantageBrief discovery session.",
+};
+
 export default function WorkspacePage() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-16">
-      <section aria-labelledby="workspace-title">
-        <p className="mb-3 text-sm font-semibold tracking-[0.14em] text-brass uppercase">
-          VantageBrief
-        </p>
-        <h1
-          id="workspace-title"
-          className="font-serif text-5xl leading-tight text-ink sm:text-6xl"
-        >
-          Discovery workspace
-        </h1>
-        <p className="mt-5 max-w-xl text-base leading-7 text-ink-muted">
-          The workspace shell is ready for the next approved implementation phase.
-        </p>
-      </section>
-    </main>
-  );
+  return <WorkspaceApp />;
 }

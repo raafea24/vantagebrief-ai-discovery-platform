@@ -13,8 +13,8 @@ Codex must not begin a later phase, add future features, or redesign an approved
 # Current Project Status
 
 ```text
-Current phase: Phase 2 — Premium Landing Page
-Current screen: Final CTA and Footer
+Current phase: Phase 3 — Workspace Onboarding
+Current screen: Onboarding experience
 Implementation status: Implemented — awaiting approval and merge
 Production deployment: Not started
 n8n workflow status: Functional and published
@@ -605,8 +605,10 @@ Implement:
 - Workspace header
 - Onboarding panel
 - Name field
-- Business email field
-- Starting-intent selection
+- Business or company name field
+- Work email field
+- Role selection
+- Initial business challenge or opportunity field
 - Validation
 - Redux user state
 - Session creation
@@ -623,34 +625,38 @@ Do not connect n8n during this phase.
 
 Heading:
 
-> Let’s understand what you are trying to improve.
+> Let’s understand your business first.
 
 Supporting copy:
 
-> Share your business context and current challenge. VantageBrief will guide the discussion and prepare a structured brief when you are ready.
+> Share your context and current challenge. VantageBrief will use it to prepare a more focused discovery session.
 
 Email explanation:
 
-> Your email is used only to send the conversation brief when you explicitly request it.
+> Used only for this discovery session and a brief you explicitly request.
+
+Privacy explanation:
+
+> Your information is used only to personalize this discovery session.
 
 Primary action:
 
 ```text
-Begin discovery
+Continue to Workspace
 ```
 
 ---
 
-## Starting intents
+## Workspace roles
 
 ```text
-Automate a business process
-Explore an AI solution
-Improve an existing workflow
-Plan a custom digital product
+Business owner or executive
+Operations
+Strategy or consulting
+Sales or business development
+Product or technology
+Another role
 ```
-
-Each option must include a concise explanation.
 
 ---
 
@@ -662,6 +668,12 @@ Full name:
 - Trimmed
 - Maximum 100 characters
 
+Business or company name:
+
+- Required
+- Trimmed
+- Maximum 120 characters
+
 Email:
 
 - Required
@@ -669,9 +681,15 @@ Email:
 - Maximum 254 characters
 - Normalized to lowercase
 
-Starting intent:
+Role:
 
 - Required
+
+Initial challenge or opportunity:
+
+- Required
+- Trimmed
+- Maximum 1,500 characters
 
 Show validation near the relevant field.
 
@@ -712,12 +730,13 @@ Test:
 
 - Empty form submission
 - Invalid email
-- Missing starting intent
+- Missing role
+- Missing challenge
 - Successful onboarding
 - Name trimming
 - Email normalization
 - Keyboard navigation
-- Intent-card keyboard selection
+- Role selection
 - Local persistence
 - Refresh recovery
 - Mobile layout
