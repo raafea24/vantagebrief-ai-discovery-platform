@@ -13,8 +13,8 @@ Codex must not begin a later phase, add future features, or redesign an approved
 # Current Project Status
 
 ```text
-Current phase: Phase 3 — Workspace Onboarding
-Current screen: Onboarding experience
+Current phase: Phase 4 — Discovery Workspace
+Current screen: Initial Discovery Workspace empty state
 Implementation status: Implemented — awaiting approval and merge
 Production deployment: Not started
 n8n workflow status: Functional and published

@@ -1,9 +1,9 @@
 "use client";
 
 import { OnboardingPanel } from "./OnboardingPanel";
+import { DiscoveryWorkspace } from "./DiscoveryWorkspace";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { WorkspacePreview } from "./WorkspacePreview";
-import { WorkspaceReadyState } from "./WorkspaceReadyState";
 import { useAppSelector } from "@/store/hooks";
 import { selectHydrationStatus } from "@/store/features/session/sessionSelectors";
 import { selectUser } from "@/store/features/user/userSelectors";
@@ -27,6 +27,10 @@ export function WorkspaceApp() {
     );
   }
 
+  if (user.onboardingCompleted) {
+    return <DiscoveryWorkspace user={user} />;
+  }
+
   return (
     <div className={styles.shell}>
       <WorkspaceHeader />
@@ -42,14 +46,10 @@ export function WorkspaceApp() {
         </span>
       </div>
 
-      {user.onboardingCompleted ? (
-        <WorkspaceReadyState user={user} />
-      ) : (
-        <main className={styles.onboardingMain}>
-          <OnboardingPanel />
-          <WorkspacePreview />
-        </main>
-      )}
+      <main className={styles.onboardingMain}>
+        <OnboardingPanel />
+        <WorkspacePreview />
+      </main>
     </div>
   );
 }

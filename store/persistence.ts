@@ -1,12 +1,18 @@
 import { z } from "zod";
 import type { AppStore, RootState } from "@/store";
 import { onboardingSchema } from "@/lib/schemas/onboardingSchema";
-import type { SessionState, UserState } from "@/types/workspace";
+import type {
+  BriefState,
+  ConversationState,
+  SessionState,
+  UserState,
+  WorkspaceState,
+} from "@/types/workspace";
 
 export const WORKSPACE_STORAGE_KEY = "vantagebrief.workspace.v1";
 
 const persistedUserSchema = onboardingSchema.extend({
-  onboardingCompleted: z.literal(true),
+  onboardingCompleted: z.boolean(),
 });
 
 const persistedSessionSchema = z.object({
@@ -17,16 +23,58 @@ const persistedSessionSchema = z.object({
   hydrationStatus: z.literal("ready"),
 });
 
+const persistedWorkspaceUiSchema = z.object({
+  mode: z.enum(["empty", "initiated"]),
+  discoveryStage: z.enum([
+    "context",
+    "challenge",
+    "workflow",
+    "requirements",
+    "direction",
+    "brief",
+  ]),
+});
+
+const persistedConversationSchema = z.object({
+  draft: z.string().max(4000),
+  firstMessage: z
+    .object({
+      id: z.uuid(),
+      content: z.string().trim().min(1).max(4000),
+      createdAt: z.iso.datetime(),
+    })
+    .nullable(),
+});
+
+const persistedBriefSchema = z.object({
+  status: z.literal("not_started"),
+  sections: z.object({
+    businessContext: z.literal("available"),
+    primaryChallenge: z.enum(["current", "pending"]),
+    currentWorkflow: z.literal("pending"),
+    requirements: z.literal("pending"),
+    recommendedDirection: z.literal("pending"),
+    openQuestions: z.literal("pending"),
+    nextStep: z.literal("pending"),
+  }),
+});
+
 const persistedWorkspaceSchema = z.object({
   version: z.literal(1),
   user: persistedUserSchema,
   session: persistedSessionSchema,
+  workspace: persistedWorkspaceUiSchema.optional(),
+  conversation: persistedConversationSchema.optional(),
+  brief: persistedBriefSchema.optional(),
 });
 
 export interface PersistedWorkspaceState {
   version: 1;
   user: UserState;
   session: SessionState;
+  workspace?: WorkspaceState;
+  conversation?: ConversationState;
+  brief?: BriefState;
 }
 
 export function readPersistedWorkspace(
@@ -57,7 +105,6 @@ function createPersistedWorkspace(
   state: RootState,
 ): PersistedWorkspaceState | null {
   if (
-    !state.user.onboardingCompleted ||
     !state.session.sessionId ||
     !state.session.createdAt ||
     !state.session.updatedAt ||
@@ -71,6 +118,9 @@ function createPersistedWorkspace(
     version: 1 as const,
     user: state.user,
     session: state.session,
+    workspace: state.workspace,
+    conversation: state.conversation,
+    brief: state.brief,
   };
   const result = persistedWorkspaceSchema.safeParse(candidate);
 

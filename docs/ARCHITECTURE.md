@@ -1036,9 +1036,11 @@ Persist only:
 - Onboarding completion
 - Session ID
 - Session timestamps
-- Conversation messages
-- Opportunity Brief
-- Discovery progress
+- Current workspace mode
+- Current message draft
+- Submitted conversation messages
+- Opportunity Brief state
+- Discovery progress stage
 
 Do not persist:
 
