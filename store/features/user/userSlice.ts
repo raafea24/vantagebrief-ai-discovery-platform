@@ -20,6 +20,9 @@ const userSlice = createSlice({
     completeOnboarding(state) {
       state.onboardingCompleted = true;
     },
+    editOnboarding(state) {
+      state.onboardingCompleted = false;
+    },
     hydrateUser(_state, action: PayloadAction<UserState>) {
       return action.payload;
     },
@@ -31,6 +34,7 @@ const userSlice = createSlice({
 
 export const {
   completeOnboarding,
+  editOnboarding,
   hydrateUser,
   resetUser,
   setUserProfile,

@@ -17,12 +17,14 @@ import {
 } from "react";
 import { onboardingSchema } from "@/lib/schemas/onboardingSchema";
 import { createWorkspaceSessionId } from "@/lib/session";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { createSession } from "@/store/features/session/sessionSlice";
+import { selectSession } from "@/store/features/session/sessionSelectors";
 import {
   completeOnboarding,
   setUserProfile,
 } from "@/store/features/user/userSlice";
+import { selectUser } from "@/store/features/user/userSelectors";
 import type { WorkspaceRole } from "@/types/workspace";
 import { roleLabels } from "./workspaceContent";
 import styles from "./WorkspaceOnboarding.module.css";
@@ -38,7 +40,7 @@ interface FormValues {
 type FormField = keyof FormValues;
 type FormErrors = Partial<Record<FormField, string>>;
 
-const initialValues: FormValues = {
+const emptyValues: FormValues = {
   fullName: "",
   companyName: "",
   email: "",
@@ -74,7 +76,19 @@ function getErrors(values: FormValues): FormErrors {
 
 export function OnboardingPanel() {
   const dispatch = useAppDispatch();
-  const [values, setValues] = useState<FormValues>(initialValues);
+  const savedUser = useAppSelector(selectUser);
+  const session = useAppSelector(selectSession);
+  const [values, setValues] = useState<FormValues>(() =>
+    savedUser.fullName
+      ? {
+          fullName: savedUser.fullName,
+          companyName: savedUser.companyName,
+          email: savedUser.email,
+          role: savedUser.role,
+          challenge: savedUser.challenge,
+        }
+      : emptyValues,
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Partial<Record<FormField, boolean>>>({});
   const fieldReferences = useRef<
@@ -134,12 +148,14 @@ export function OnboardingPanel() {
 
     dispatch(setUserProfile(result.data));
     dispatch(completeOnboarding());
-    dispatch(
-      createSession({
-        sessionId: createWorkspaceSessionId(),
-        timestamp,
-      }),
-    );
+    if (!session.sessionId) {
+      dispatch(
+        createSession({
+          sessionId: createWorkspaceSessionId(),
+          timestamp,
+        }),
+      );
+    }
   }
 
   function fieldDescription(field: FormField, hintId?: string) {

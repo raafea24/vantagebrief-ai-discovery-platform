@@ -31,3 +31,45 @@ export interface SessionState {
   status: SessionStatus;
   hydrationStatus: HydrationStatus;
 }
+
+export type WorkspaceMode = "empty" | "initiated";
+
+export type DiscoveryStage =
+  | "context"
+  | "challenge"
+  | "workflow"
+  | "requirements"
+  | "direction"
+  | "brief";
+
+export interface WorkspaceState {
+  mode: WorkspaceMode;
+  discoveryStage: DiscoveryStage;
+}
+
+export interface LocalUserMessage {
+  id: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ConversationState {
+  draft: string;
+  firstMessage: LocalUserMessage | null;
+}
+
+export type BriefSectionStatus = "available" | "current" | "pending";
+
+export type BriefSectionKey =
+  | "businessContext"
+  | "primaryChallenge"
+  | "currentWorkflow"
+  | "requirements"
+  | "recommendedDirection"
+  | "openQuestions"
+  | "nextStep";
+
+export interface BriefState {
+  status: "not_started";
+  sections: Record<BriefSectionKey, BriefSectionStatus>;
+}
