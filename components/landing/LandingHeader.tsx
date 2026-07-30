@@ -2,8 +2,9 @@ import { ArrowUpRight, Menu } from "lucide-react";
 import Link from "next/link";
 
 const navigationLinks = [
-  { href: "#discovery-preview", label: "How it works" },
-  { href: "#capabilities", label: "Capabilities" },
+  { href: "#discovery-preview", label: "How It Works" },
+  { href: "#capabilities", label: "Use Cases" },
+  { href: "#about", label: "About" },
 ];
 
 export function LandingHeader() {
@@ -26,7 +27,7 @@ export function LandingHeader() {
         </nav>
 
         <Link className="landing-header__cta" href="/workspace">
-          Start discovery
+          Start a Brief
           <ArrowUpRight aria-hidden="true" size={17} strokeWidth={1.8} />
         </Link>
 
@@ -40,7 +41,7 @@ export function LandingHeader() {
                 {link.label}
               </Link>
             ))}
-            <Link href="/workspace">Start discovery</Link>
+            <Link href="/workspace">Start a Brief</Link>
           </nav>
         </details>
       </div>

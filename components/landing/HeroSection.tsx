@@ -19,11 +19,12 @@ export function HeroSection() {
           </p>
 
           <h1 id="hero-heading">
-            Turn business conversations into{" "}
+            <span>Turn business</span>
+            <span>conversations into</span>
             <em>decision-ready briefs.</em>
           </h1>
 
-          <p className="hero__summary">
+          <p className="hero__summary" id="about">
             VantageBrief guides a focused conversation, clarifies the real
             operational challenge, and organizes what matters into a practical
             opportunity brief.
@@ -40,17 +41,18 @@ export function HeroSection() {
             </Link>
           </div>
 
-          <ul className="hero__capabilities" id="capabilities" aria-label="Capabilities">
-            {capabilities.map((capability) => (
-              <li key={capability}>
-                <span aria-hidden="true" />
-                {capability}
-              </li>
-            ))}
-          </ul>
         </div>
 
         <HeroProductPreview />
+
+        <ul className="hero__capabilities" id="capabilities" aria-label="Capabilities">
+          {capabilities.map((capability) => (
+            <li key={capability}>
+              <span aria-hidden="true" />
+              {capability}
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
