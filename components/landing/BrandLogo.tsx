@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-export function BrandLogo() {
+export function BrandLogo({ href = "/#top" }: { href?: string }) {
   return (
-    <Link className="wordmark" href="/#top" aria-label="VantageBrief home">
+    <Link className="wordmark" href={href} aria-label="VantageBrief home">
       <span className="wordmark__mark" aria-hidden="true">
         V
       </span>

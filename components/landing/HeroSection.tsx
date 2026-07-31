@@ -1,6 +1,6 @@
 import { ArrowRight, CirclePlay } from "lucide-react";
 import Link from "next/link";
-import { HeroProductPreview } from "@/components/landing/HeroProductPreview";
+import { HeroCinematicVideo } from "@/components/landing/HeroCinematicVideo";
 
 const capabilities = [
   "Guided business discovery",
@@ -35,7 +35,7 @@ export function HeroSection() {
               Start a Brief
               <ArrowRight aria-hidden="true" size={19} strokeWidth={1.8} />
             </Link>
-            <Link className="hero__secondary-action" href="#discovery-preview">
+            <Link className="hero__secondary-action" href="#how-it-works">
               <CirclePlay aria-hidden="true" size={20} strokeWidth={1.6} />
               See How It Works
             </Link>
@@ -43,7 +43,7 @@ export function HeroSection() {
 
         </div>
 
-        <HeroProductPreview />
+        <HeroCinematicVideo />
 
         <ul className="hero__capabilities" id="capabilities" aria-label="Capabilities">
           {capabilities.map((capability) => (
