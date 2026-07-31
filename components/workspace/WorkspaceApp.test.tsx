@@ -1,14 +1,38 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
-import * as chatTransportModule from "@/lib/chat/getChatTransport";
 import { WORKSPACE_STORAGE_KEY } from "@/store/persistence";
 import { WorkspaceApp } from "./WorkspaceApp";
+
+function createChatResponse(
+  reply = "Thanks — that gives us a useful starting point. What happens immediately before and after this part of the workflow?",
+) {
+  return new Response(
+    JSON.stringify({
+      success: true,
+      type: "chat_response",
+      reply,
+      sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+      briefPatch: {
+        primaryChallenge: "A workflow handoff needs clarification.",
+      },
+    }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(createChatResponse()));
+});
 
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -177,7 +201,7 @@ describe("WorkspaceApp onboarding", () => {
     });
   });
 
-  it("populates the composer and stores transport-driven conversation messages", async () => {
+  it("populates the composer and stores API-driven conversation messages", async () => {
     const user = userEvent.setup();
     seedCompletedWorkspace();
     renderWorkspace();
@@ -204,7 +228,20 @@ describe("WorkspaceApp onboarding", () => {
       screen.getAllByText(
         "Where is our current process slowing down? Please focus on handoffs.",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
+    const apiRequest = vi.mocked(fetch).mock.calls[0][0] as Request;
+    expect(new URL(apiRequest.url).pathname).toBe("/api/chat");
+    await expect(apiRequest.clone().json()).resolves.toMatchObject({
+      message:
+        "Where is our current process slowing down? Please focus on handoffs.",
+      sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+      name: "Jordan Lee",
+      email: "jordan@northstar.example",
+      companyName: "Northstar Operations",
+      role: "business_owner",
+      initialChallenge:
+        "We need to clarify ownership across a complex process.",
+    });
 
     await waitFor(() => {
       const saved = JSON.parse(
@@ -219,21 +256,17 @@ describe("WorkspaceApp onboarding", () => {
     });
   });
 
-  it("preserves a failed draft and retries through the transport abstraction", async () => {
+  it("preserves a failed draft and retries through the API integration", async () => {
     const user = userEvent.setup();
-    const send = vi
+    const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new Error("temporary failure"))
-      .mockResolvedValueOnce({
-        reply: "Thanks. What part of that workflow should we examine first?",
-        briefPatch: {
-          primaryChallenge: "A workflow handoff needs clarification.",
-        },
-      });
-
-    vi.spyOn(chatTransportModule, "getChatTransport").mockResolvedValue({
-      send,
-    });
+      .mockResolvedValueOnce(
+        createChatResponse(
+          "Thanks. What part of that workflow should we examine first?",
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
     seedCompletedWorkspace();
     renderWorkspace();
 
@@ -258,6 +291,6 @@ describe("WorkspaceApp onboarding", () => {
     expect(
       screen.queryByText("We couldn't continue the discovery."),
     ).not.toBeInTheDocument();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

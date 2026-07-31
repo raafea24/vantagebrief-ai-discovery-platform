@@ -1,7 +1,8 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { getChatTransport } from "@/lib/chat/getChatTransport";
 import { createWorkspaceSessionId } from "@/lib/session";
 import type { RootState } from "@/store";
+import { chatApi } from "@/store/api/chatApi";
+import type { ChatApiErrorResponse } from "@/types/chat";
 import type {
   BriefPatch,
   ConversationMessage,
@@ -24,13 +25,35 @@ interface SendMessageFailure {
   message: string;
 }
 
+function getSafeErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "error" in error.data
+  ) {
+    const data = error.data as ChatApiErrorResponse;
+
+    if (
+      typeof data.error?.message === "string" &&
+      data.error.message.length <= 300
+    ) {
+      return data.error.message;
+    }
+  }
+
+  return "VantageBrief could not continue the discovery just now. Your message is preserved.";
+}
+
 export const sendConversationMessage = createAsyncThunk<
   SendMessageResult,
   SendMessageArgument,
   { state: RootState; rejectValue: SendMessageFailure }
 >(
   "conversation/sendMessage",
-  async ({ message }, { getState, rejectWithValue }) => {
+  async ({ message }, { dispatch, getState, rejectWithValue }) => {
     const state = getState();
     const sessionId = state.session.sessionId;
 
@@ -43,28 +66,17 @@ export const sendConversationMessage = createAsyncThunk<
     }
 
     try {
-      const transport = await getChatTransport();
-      const messages = [
-        ...state.conversation.messages.filter(
-          (existingMessage) => existingMessage.id !== message.id,
-        ),
-        {
-          ...message,
-          sender: "user" as const,
-          status: "sent" as const,
-        },
-      ];
-      const result = await transport.send({
-        sessionId,
-        user: {
-          fullName: state.user.fullName,
-          companyName: state.user.companyName,
+      const result = await dispatch(
+        chatApi.endpoints.sendChatMessage.initiate({
+          message: message.content,
+          sessionId,
+          name: state.user.fullName,
           email: state.user.email,
+          companyName: state.user.companyName,
           role: state.user.role,
-          challenge: state.user.challenge,
-        },
-        messages,
-      });
+          initialChallenge: state.user.challenge,
+        }, { track: false }),
+      ).unwrap();
 
       return {
         userMessageId: message.id,
@@ -77,11 +89,10 @@ export const sendConversationMessage = createAsyncThunk<
         },
         briefPatch: result.briefPatch,
       };
-    } catch {
+    } catch (error) {
       return rejectWithValue({
         userMessageId: message.id,
-        message:
-          "VantageBrief could not continue the discovery just now. Your message is preserved.",
+        message: getSafeErrorMessage(error),
       });
     }
   },

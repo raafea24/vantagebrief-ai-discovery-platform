@@ -863,8 +863,9 @@ interface ChatRequest {
   sessionId: string;
   name: string;
   email: string;
-  intent?: StartingIntent;
-  action?: "chat" | "email_brief";
+  companyName: string;
+  role: WorkspaceRole;
+  initialChallenge: string;
 }
 ```
 
@@ -907,27 +908,30 @@ Its only destination is:
 
 ---
 
-# Phase 4 Temporary Chat Transport
+# Phase 5 Conversation Transport
 
-During Phase 4, workspace components dispatch typed conversation actions
-without knowing which transport produces the response.
+Workspace conversation actions use the existing RTK Query service to call only:
 
-The transport contract returns:
-
-```typescript
-interface ChatTransportResult {
-  reply: string;
-  briefPatch?: BriefPatch;
-}
+```text
+POST /api/chat
 ```
 
-Development and test environments load a deterministic mock adapter through
-this interface. Production does not load or execute the mock adapter. Phase 5
-will replace the transport implementation with the secured `/api/chat` RTK
-Query path without changing the conversation components.
+The browser request contains the active message and approved onboarding
+context. It never contains the n8n webhook URL, authentication header, or
+secret.
 
-The temporary adapter must not call n8n, Gemini, Gmail, or any external
-provider, and mock-mode wording must not appear in the product interface.
+The Next.js route validates and normalizes the request, then delegates to the
+server-only n8n client. The client attaches the configured private
+authentication header, applies the configured timeout, validates the webhook
+response, and returns only the public-safe response contract.
+
+Reply-only responses remain valid. When n8n returns supported structured brief
+data, the server normalizes it to a typed `BriefPatch` before the successful
+response reaches Redux. Failed or malformed webhook responses never update the
+assistant conversation or Opportunity Brief state.
+
+The Phase 4 mock adapter has been removed. Ordinary tests mock the n8n boundary
+and do not call the production webhook.
 
 ---
 
@@ -1152,8 +1156,9 @@ const chatRequestSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/),
   name: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(254),
-  intent: startingIntentSchema.optional(),
-  action: z.enum(["chat", "email_brief"]).optional(),
+  companyName: z.string().trim().min(1).max(120),
+  role: workspaceRoleSchema,
+  initialChallenge: z.string().trim().min(1).max(1500),
 });
 ```
 
@@ -1173,8 +1178,10 @@ interface N8nChatRequest {
   sessionId: string;
   name: string;
   email: string;
-  intent?: StartingIntent;
-  action?: "chat" | "email_brief";
+  companyName: string;
+  role: WorkspaceRole;
+  initialChallenge: string;
+  action: "chat";
   metadata: {
     source: "vantagebrief-web";
     requestId: string;
