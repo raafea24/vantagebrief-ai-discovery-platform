@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import type { DiscoveryStage } from "@/types/workspace";
+import type { DiscoveryProgressState } from "@/store/features/brief/briefSelectors";
 import styles from "./DiscoveryWorkspace.module.css";
 
 const stages = [
@@ -11,35 +11,17 @@ const stages = [
   { key: "brief", name: "Brief", description: "Complete the opportunity brief" },
 ] as const;
 
-const stageOrder: DiscoveryStage[] = [
-  "context",
-  "challenge",
-  "workflow",
-  "requirements",
-  "direction",
-  "brief",
-];
-
 export function DiscoveryProgress({
-  currentStage,
-  briefComplete,
+  progress,
 }: {
-  currentStage: DiscoveryStage;
-  briefComplete: boolean;
+  progress: DiscoveryProgressState;
 }) {
-  const currentIndex = stageOrder.indexOf(currentStage);
-
   return (
     <section className={styles.progress} aria-labelledby="progress-title">
       <h2 id="progress-title">Discovery progress</h2>
       <ol>
         {stages.map((stage, index) => {
-          const state =
-            briefComplete || index < currentIndex
-              ? "complete"
-              : index === currentIndex
-                ? "current"
-                : "pending";
+          const state = progress.stages[stage.key];
 
           return (
             <li key={stage.key} data-state={state}>
@@ -53,6 +35,7 @@ export function DiscoveryProgress({
               <div>
                 <strong>{stage.name}</strong>
                 <small>{stage.description}</small>
+                <span className={styles.srOnly}>{state}</span>
               </div>
             </li>
           );

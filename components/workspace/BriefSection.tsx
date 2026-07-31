@@ -11,6 +11,7 @@ export function BriefSection({
   status: BriefSectionStatus;
   children: React.ReactNode;
 }) {
+  const statusLabel = status === "complete" ? "Confirmed" : status === "current" ? "In progress" : "Pending";
   return (
     <section className={styles.briefSection} data-status={status}>
       <span aria-hidden="true">
@@ -24,6 +25,7 @@ export function BriefSection({
       </span>
       <div>
         <strong>{label}</strong>
+        <small className={styles.briefSectionState}>{statusLabel}</small>
         {children}
       </div>
     </section>

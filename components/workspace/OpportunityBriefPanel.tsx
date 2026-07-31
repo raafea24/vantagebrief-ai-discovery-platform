@@ -1,4 +1,4 @@
-import { FileText, Mail } from "lucide-react";
+import { Check, FileText, LoaderCircle, Mail } from "lucide-react";
 import type {
   BriefField,
   BriefState,
@@ -62,6 +62,7 @@ export function OpportunityBriefPanel({
         isActive ? styles.briefPanelActive : ""
       } ${className}`}
       aria-labelledby="brief-title"
+      tabIndex={-1}
     >
       <header>
         <div>
@@ -70,7 +71,11 @@ export function OpportunityBriefPanel({
         </div>
         <div className={styles.briefHeaderActions}>
           <span>
-            {brief.status === "pending" ? "Not started" : brief.status}
+            {brief.status === "complete"
+              ? "Brief ready"
+              : brief.status === "pending"
+                ? "Not started"
+                : "In progress"}
           </span>
           {isActive ? (
             <button
@@ -78,8 +83,22 @@ export function OpportunityBriefPanel({
               disabled={emailDisabled}
               onClick={onEmailBrief}
             >
-              <Mail size={14} strokeWidth={1.7} aria-hidden="true" />
-              Email Brief
+              {email.status === "processing" ? (
+                <LoaderCircle size={14} strokeWidth={1.7} aria-hidden="true" />
+              ) : email.status === "success" ? (
+                <Check size={14} strokeWidth={1.8} aria-hidden="true" />
+              ) : (
+                <Mail size={14} strokeWidth={1.7} aria-hidden="true" />
+              )}
+              {email.status === "processing"
+                ? "Sending brief…"
+                : email.status === "success"
+                  ? "Brief emailed"
+                  : email.status === "updated" ||
+                      (email.status === "failed" &&
+                        email.sentBriefFingerprint)
+                    ? "Email updated brief"
+                    : "Email Brief"}
             </button>
           ) : null}
         </div>
@@ -106,14 +125,14 @@ export function OpportunityBriefPanel({
       <EmailBriefStatus email={email} onRetry={onRetryEmail} />
 
       <div className={styles.briefSections}>
-        <BriefSection label="Business Context" status="complete">
+        <BriefSection label="Business Context" status={brief.businessContext.status}>
           <p>{businessContext}</p>
         </BriefSection>
         <BriefSection
           label="Primary Challenge"
           status={brief.primaryChallenge.status}
         >
-          <TextValue field={brief.primaryChallenge} fallback="Ready to explore" />
+          <TextValue field={brief.primaryChallenge} />
         </BriefSection>
         <BriefSection
           label="Current Workflow"

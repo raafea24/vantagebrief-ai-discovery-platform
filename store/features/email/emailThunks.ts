@@ -1,5 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { maskEmail } from "@/lib/email";
+import { createBriefFingerprint } from "@/lib/briefFingerprint";
 import type { RootState } from "@/store";
 import { chatApi } from "@/store/api/chatApi";
 import { getSafeChatErrorMessage } from "@/store/api/chatError";
@@ -14,6 +15,8 @@ export type EmailOutcome = "sent" | "failed";
 export interface SendBriefEmailResult {
   outcome: EmailOutcome;
   maskedRecipient: string;
+  confirmedRecipient: string;
+  briefFingerprint: string;
   message?: string;
   briefPatch?: BriefPatch;
 }
@@ -74,6 +77,8 @@ export const sendBriefEmail = createAsyncThunk<
       return {
         outcome,
         maskedRecipient: maskEmail(state.user.email),
+        confirmedRecipient: state.user.email,
+        briefFingerprint: createBriefFingerprint(state.brief),
         ...(result.emailMessage ? { message: result.emailMessage } : {}),
         ...(result.brief ? { briefPatch: result.brief } : {}),
       };

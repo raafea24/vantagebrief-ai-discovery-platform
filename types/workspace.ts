@@ -45,6 +45,7 @@ export type DiscoveryStage =
 export interface WorkspaceState {
   mode: WorkspaceMode;
   discoveryStage: DiscoveryStage;
+  selectedPanel: "conversation" | "brief";
 }
 
 export type MessageSender = "user" | "assistant";
@@ -110,11 +111,14 @@ export type EmailRequestStatus =
   | "idle"
   | "processing"
   | "success"
+  | "updated"
   | "failed";
 
 export interface EmailState {
   status: EmailRequestStatus;
   maskedRecipient: string | null;
+  confirmedRecipient: string | null;
   message: string | null;
   error: string | null;
+  sentBriefFingerprint: string | null;
 }

@@ -2,11 +2,12 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { BriefPatch, BriefState } from "@/types/workspace";
 import { sendConversationMessage } from "@/store/features/conversation/conversationThunks";
 import { sendBriefEmail } from "@/store/features/email/emailThunks";
+import { setUserProfile } from "@/store/features/user/userSlice";
 
 export const initialBriefState: BriefState = {
   status: "pending",
-  businessContext: { value: null, status: "complete" },
-  primaryChallenge: { value: null, status: "current" },
+  businessContext: { value: null, status: "current" },
+  primaryChallenge: { value: null, status: "pending" },
   currentWorkflow: { value: [], status: "pending" },
   requirements: { value: [], status: "pending" },
   recommendedDirection: { value: null, status: "pending" },
@@ -14,12 +15,20 @@ export const initialBriefState: BriefState = {
   nextStep: { value: null, status: "pending" },
 };
 
+function meaningfulText(value: string | null | undefined) {
+  const normalized = value?.trim();
+  return normalized && normalized.length >= 3 ? normalized : null;
+}
+
 function uniqueValues(existing: string[], incoming: string[]) {
-  return Array.from(new Set([...existing, ...incoming]));
+  const meaningfulIncoming = incoming
+    .map((value) => meaningfulText(value))
+    .filter((value): value is string => Boolean(value));
+  return Array.from(new Set([...existing, ...meaningfulIncoming]));
 }
 
 function hasText(value: string | null) {
-  return Boolean(value?.trim());
+  return Boolean(meaningfulText(value));
 }
 
 function updateBriefStatuses(state: BriefState) {
@@ -90,12 +99,17 @@ function updateBriefStatuses(state: BriefState) {
 }
 
 export function applyBriefPatch(state: BriefState, patch: BriefPatch) {
-  if (patch.businessContext) {
-    state.businessContext.value = patch.businessContext;
+  const businessContext = meaningfulText(patch.businessContext);
+  const primaryChallenge = meaningfulText(patch.primaryChallenge);
+  const recommendedDirection = meaningfulText(patch.recommendedDirection);
+  const nextStep = meaningfulText(patch.nextStep);
+
+  if (businessContext) {
+    state.businessContext.value = businessContext;
   }
 
-  if (patch.primaryChallenge) {
-    state.primaryChallenge.value = patch.primaryChallenge;
+  if (primaryChallenge) {
+    state.primaryChallenge.value = primaryChallenge;
   }
 
   if (patch.currentWorkflow?.length) {
@@ -112,8 +126,8 @@ export function applyBriefPatch(state: BriefState, patch: BriefPatch) {
     );
   }
 
-  if (patch.recommendedDirection) {
-    state.recommendedDirection.value = patch.recommendedDirection;
+  if (recommendedDirection) {
+    state.recommendedDirection.value = recommendedDirection;
   }
 
   if (patch.openQuestions?.length) {
@@ -123,8 +137,8 @@ export function applyBriefPatch(state: BriefState, patch: BriefPatch) {
     );
   }
 
-  if (patch.nextStep) {
-    state.nextStep.value = patch.nextStep;
+  if (nextStep) {
+    state.nextStep.value = nextStep;
   }
 
   updateBriefStatuses(state);
@@ -143,6 +157,11 @@ const briefSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(setUserProfile, (state, action) => {
+        state.businessContext.value = `${action.payload.companyName} · ${action.payload.role.replaceAll("_", " ")}`;
+        state.primaryChallenge.value = action.payload.challenge;
+        updateBriefStatuses(state);
+      })
       .addCase(sendConversationMessage.fulfilled, (state, action) => {
         if (action.payload.briefPatch) {
           applyBriefPatch(state, action.payload.briefPatch);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { OnboardingPanel } from "./OnboardingPanel";
 import { DiscoveryWorkspace } from "./DiscoveryWorkspace";
 import { WorkspaceHeader } from "./WorkspaceHeader";
@@ -12,6 +13,21 @@ import styles from "./WorkspaceOnboarding.module.css";
 export function WorkspaceApp() {
   const hydrationStatus = useAppSelector(selectHydrationStatus);
   const user = useAppSelector(selectUser);
+
+  useEffect(() => {
+    if (
+      hydrationStatus === "ready" &&
+      !user.onboardingCompleted &&
+      (window.location.hash === "#discovery-panel" ||
+        window.location.hash === "#brief-panel")
+    ) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+  }, [hydrationStatus, user.onboardingCompleted]);
 
   if (hydrationStatus !== "ready") {
     return (

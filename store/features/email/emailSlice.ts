@@ -1,20 +1,30 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { resetSession } from "@/store/features/session/sessionSlice";
-import { setUserProfile } from "@/store/features/user/userSlice";
 import type { EmailState } from "@/types/workspace";
 import { sendBriefEmail } from "./emailThunks";
 
 export const initialEmailState: EmailState = {
   status: "idle",
   maskedRecipient: null,
+  confirmedRecipient: null,
   message: null,
   error: null,
+  sentBriefFingerprint: null,
 };
 
 const emailSlice = createSlice({
   name: "email",
   initialState: initialEmailState,
   reducers: {
+    hydrateEmail(_state, action: { payload: EmailState }) {
+      return action.payload;
+    },
+    markBriefUpdatedSinceEmail(state) {
+      if (state.sentBriefFingerprint) {
+        state.status = "updated";
+        state.error = null;
+      }
+    },
     resetEmailState() {
       return initialEmailState;
     },
@@ -30,6 +40,8 @@ const emailSlice = createSlice({
         if (action.payload.outcome === "sent") {
           state.status = "success";
           state.maskedRecipient = action.payload.maskedRecipient;
+          state.confirmedRecipient = action.payload.confirmedRecipient;
+          state.sentBriefFingerprint = action.payload.briefFingerprint;
           state.message =
             action.payload.message ?? "Your brief has been sent.";
           state.error = null;
@@ -54,10 +66,10 @@ const emailSlice = createSlice({
           action.payload ??
           "The email request could not be completed. Please try again.";
       })
-      .addCase(setUserProfile, () => initialEmailState)
       .addCase(resetSession, () => initialEmailState);
   },
 });
 
-export const { resetEmailState } = emailSlice.actions;
+export const { hydrateEmail, markBriefUpdatedSinceEmail, resetEmailState } =
+  emailSlice.actions;
 export const emailReducer = emailSlice.reducer;

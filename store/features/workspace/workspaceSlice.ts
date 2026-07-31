@@ -10,6 +10,7 @@ import { sendBriefEmail } from "@/store/features/email/emailThunks";
 export const initialWorkspaceState: WorkspaceState = {
   mode: "empty",
   discoveryStage: "challenge",
+  selectedPanel: "conversation",
 };
 
 const workspaceSlice = createSlice({
@@ -21,6 +22,12 @@ const workspaceSlice = createSlice({
     },
     setDiscoveryStage(state, action: PayloadAction<DiscoveryStage>) {
       state.discoveryStage = action.payload;
+    },
+    setSelectedPanel(
+      state,
+      action: PayloadAction<WorkspaceState["selectedPanel"]>,
+    ) {
+      state.selectedPanel = action.payload;
     },
     hydrateWorkspace(_state, action: PayloadAction<WorkspaceState>) {
       return action.payload;
@@ -71,6 +78,7 @@ export const {
   hydrateWorkspace,
   resetWorkspace,
   setDiscoveryStage,
+  setSelectedPanel,
   setWorkspaceMode,
 } = workspaceSlice.actions;
 

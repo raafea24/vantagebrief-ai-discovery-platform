@@ -62,6 +62,18 @@ describe("briefSlice", () => {
   });
 
   it("marks incomplete sections as pending and requires real data for completion", () => {
+    const meaningless = briefReducer(
+      initialBriefState,
+      fulfilledAction("request-meaningless", {
+        businessContext: "x",
+        currentWorkflow: ["?"],
+      }),
+    );
+
+    expect(meaningless.businessContext.value).toBeNull();
+    expect(meaningless.currentWorkflow.value).toEqual([]);
+    expect(meaningless.status).toBe("pending");
+
     const partial = briefReducer(
       initialBriefState,
       fulfilledAction("request-partial", {
