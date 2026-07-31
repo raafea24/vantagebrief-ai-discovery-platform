@@ -29,6 +29,26 @@ const validBody = {
   initialChallenge: "Reporting takes too long.",
 };
 
+const emailBody = {
+  message: "Send the current Opportunity Brief.",
+  sessionId: validBody.sessionId,
+  userName: "Alex Morgan",
+  userEmail: "alex@example.com",
+  companyName: validBody.companyName,
+  role: validBody.role,
+  initialChallenge: validBody.initialChallenge,
+  action: "email_brief",
+  brief: {
+    businessContext: "Acme prepares monthly operational reports.",
+    primaryChallenge: "Reporting takes too long.",
+    currentWorkflow: ["Analysts consolidate reports manually."],
+    requirements: ["Centralize reporting inputs."],
+    recommendedDirection: "Map and simplify the reporting workflow.",
+    openQuestions: ["Which report should be piloted first?"],
+    nextStep: "Run a workflow-mapping session.",
+  },
+};
+
 function createRequest(body: string) {
   return new NextRequest("http://localhost/api/chat", {
     method: "POST",
@@ -73,6 +93,52 @@ describe("POST /api/chat", () => {
     expect(await response.json()).toMatchObject({
       success: true,
       reply: "Who approves the final report?",
+    });
+  });
+
+  it("validates and forwards an explicit email brief action", async () => {
+    vi.mocked(sendN8nChatRequest).mockResolvedValue({
+      httpStatus: 200,
+      success: true,
+      type: "email_confirmation",
+      reply: "Your Opportunity Brief has been sent to your email.",
+      sessionId: validBody.sessionId,
+      action: "email_brief",
+      emailStatus: "sent",
+      emailMessage: "The Opportunity Brief was emailed successfully.",
+    });
+
+    const response = await POST(
+      createRequest(JSON.stringify(emailBody)),
+    );
+
+    expect(sendN8nChatRequest).toHaveBeenCalledWith(emailBody);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      emailStatus: "sent",
+      emailMessage: "The Opportunity Brief was emailed successfully.",
+    });
+  });
+
+  it("preserves a validated production email failure status", async () => {
+    vi.mocked(sendN8nChatRequest).mockResolvedValue({
+      httpStatus: 502,
+      success: false,
+      type: "service_error",
+      reply: "The brief could not be emailed. Please try again.",
+      sessionId: validBody.sessionId,
+      action: "email_brief",
+      emailStatus: "failed",
+      emailMessage: "The Opportunity Brief could not be emailed.",
+    });
+
+    const response = await POST(createRequest(JSON.stringify(emailBody)));
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      emailStatus: "failed",
+      emailMessage: "The Opportunity Brief could not be emailed.",
     });
   });
 

@@ -1,7 +1,8 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
+import { createBriefFingerprint } from "@/lib/briefFingerprint";
 import { WORKSPACE_STORAGE_KEY } from "@/store/persistence";
 import { WorkspaceApp } from "./WorkspaceApp";
 
@@ -14,7 +15,7 @@ function createChatResponse(
       type: "chat_response",
       reply,
       sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
-      briefPatch: {
+      brief: {
         primaryChallenge: "A workflow handoff needs clarification.",
       },
     }),
@@ -32,6 +33,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  window.sessionStorage.clear();
+  window.history.replaceState(null, "", "/");
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -45,7 +48,7 @@ function renderWorkspace() {
 }
 
 function seedCompletedWorkspace() {
-  window.localStorage.setItem(
+  window.sessionStorage.setItem(
     WORKSPACE_STORAGE_KEY,
     JSON.stringify({
       version: 1,
@@ -67,6 +70,159 @@ function seedCompletedWorkspace() {
     }),
   );
 }
+
+function seedActiveWorkspace() {
+  seedCompletedWorkspace();
+  const saved = JSON.parse(
+    window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+  );
+
+  window.sessionStorage.setItem(
+    WORKSPACE_STORAGE_KEY,
+    JSON.stringify({
+      ...saved,
+      workspace: {
+        mode: "active",
+        discoveryStage: "requirements",
+      },
+      conversation: {
+        draft: "",
+        messages: [
+          {
+            id: "e5c6f233-10fb-430f-856f-20d0c241dba4",
+            sender: "user",
+            content: "Our reporting handoffs are unclear.",
+            createdAt: "2026-07-31T08:01:00.000Z",
+            status: "sent",
+          },
+          {
+            id: "7de3120e-df82-4e38-8fb6-f4eff18a802c",
+            sender: "assistant",
+            content: "Which handoff causes the most delay?",
+            createdAt: "2026-07-31T08:01:01.000Z",
+            status: "sent",
+          },
+        ],
+        requestStatus: "idle",
+        pendingRequestId: null,
+        failedRequest: null,
+      },
+      brief: {
+        status: "current",
+        businessContext: {
+          value: "Northstar coordinates a complex reporting process.",
+          status: "complete",
+        },
+        primaryChallenge: {
+          value: "Reporting ownership is unclear.",
+          status: "complete",
+        },
+        currentWorkflow: {
+          value: ["Reports move between operations and finance."],
+          status: "complete",
+        },
+        requirements: {
+          value: ["Clarify ownership at each handoff."],
+          status: "current",
+        },
+        recommendedDirection: { value: null, status: "pending" },
+        openQuestions: {
+          value: ["Who approves the final report?"],
+          status: "complete",
+        },
+        nextStep: { value: null, status: "pending" },
+      },
+    }),
+  );
+}
+
+function seedEmailedWorkspace({ complete = false } = {}) {
+  seedActiveWorkspace();
+  const saved = JSON.parse(
+    window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+  );
+  const brief = complete
+    ? {
+        ...saved.brief,
+        status: "complete",
+        recommendedDirection: {
+          value: "Define one accountable owner for every handoff.",
+          status: "complete",
+        },
+        nextStep: {
+          value: "Review ownership with operations and finance.",
+          status: "complete",
+        },
+      }
+    : saved.brief;
+
+  window.sessionStorage.setItem(
+    WORKSPACE_STORAGE_KEY,
+    JSON.stringify({
+      ...saved,
+      workspace: {
+        ...saved.workspace,
+        selectedPanel: "brief",
+      },
+      brief,
+      email: {
+        status: "success",
+        maskedRecipient: "jor•••@northstar.example",
+        confirmedRecipient: "jordan@northstar.example",
+        message: "The Opportunity Brief was emailed successfully.",
+        error: null,
+        sentBriefFingerprint: createBriefFingerprint(brief),
+      },
+    }),
+  );
+}
+
+describe("workspace hash navigation", () => {
+  it("defaults to Discovery and exposes distinct panel destinations", async () => {
+    seedCompletedWorkspace();
+    renderWorkspace();
+
+    const discoveryLink = await screen.findByRole("link", {
+      name: "Discovery",
+    });
+    const briefLink = screen.getByRole("link", {
+      name: "Opportunity Brief",
+    });
+
+    expect(discoveryLink).toHaveAttribute("aria-current", "page");
+    expect(discoveryLink).toHaveAttribute(
+      "href",
+      "/workspace#discovery-panel",
+    );
+    expect(briefLink).toHaveAttribute("href", "/workspace#brief-panel");
+  });
+
+  it("restores the active panel from direct and changed hashes", async () => {
+    window.history.replaceState(null, "", "/workspace#brief-panel");
+    seedCompletedWorkspace();
+    renderWorkspace();
+
+    const briefLink = await screen.findByRole("link", {
+      name: "Opportunity Brief",
+    });
+    const discoveryLink = screen.getByRole("link", { name: "Discovery" });
+
+    await waitFor(() => {
+      expect(briefLink).toHaveAttribute("aria-current", "page");
+      expect(discoveryLink).not.toHaveAttribute("aria-current");
+    });
+
+    act(() => {
+      window.history.pushState(null, "", "/workspace#discovery-panel");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    await waitFor(() => {
+      expect(discoveryLink).toHaveAttribute("aria-current", "page");
+      expect(briefLink).not.toHaveAttribute("aria-current");
+    });
+  });
+});
 
 async function completeForm() {
   const user = userEvent.setup();
@@ -90,6 +246,20 @@ async function completeForm() {
 }
 
 describe("WorkspaceApp onboarding", () => {
+  it("uses a compact home header and removes workspace panel hashes", async () => {
+    window.history.replaceState(null, "", "/workspace#discovery-panel");
+    renderWorkspace();
+
+    const logo = await screen.findByRole("link", {
+      name: "VantageBrief home",
+    });
+    const backLink = screen.getByRole("link", { name: "Back to website" });
+
+    expect(logo).toHaveAttribute("href", "/");
+    expect(backLink).toHaveAttribute("href", "/");
+    await waitFor(() => expect(window.location.hash).toBe(""));
+  });
+
   it("keeps Continue disabled and shows accessible inline email validation", async () => {
     const user = userEvent.setup();
     renderWorkspace();
@@ -124,24 +294,25 @@ describe("WorkspaceApp onboarding", () => {
       await user.click(continueButton);
 
       expect(
-        await screen.findByRole("heading", {
-          name: "Start your discovery conversation",
-        }),
+        await screen.findByText(/Thanks, Alex\./),
       ).toBeInTheDocument();
 
       await waitFor(() => {
         expect(
-          window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
+          window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY),
         ).not.toBeNull();
       });
 
       const saved = JSON.parse(
-        window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+        window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
       );
 
       expect(saved.user.fullName).toBe("Alex Morgan");
       expect(saved.user.email).toBe("alex@acmesolutions.com");
       expect(saved.user.onboardingCompleted).toBe(true);
+      expect(window.location.hash).toBe("#discovery-panel");
+      expect(window.location.pathname).toBe("/workspace");
+      expect(window.location.hash).toBe("#discovery-panel");
       expect(saved.session.sessionId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
@@ -168,12 +339,10 @@ describe("WorkspaceApp onboarding", () => {
     seedCompletedWorkspace();
     renderWorkspace();
 
-    await screen.findByRole("heading", {
-      name: "Start your discovery conversation",
+    const editButton = await screen.findByRole("button", {
+      name: "Edit business details",
     });
-    await user.click(
-      screen.getByRole("button", { name: "Edit business details" }),
-    );
+    await user.click(editButton);
 
     expect(await screen.findByLabelText("Name")).toHaveValue("Jordan Lee");
     expect(screen.getByLabelText("Business or company name")).toHaveValue(
@@ -187,13 +356,11 @@ describe("WorkspaceApp onboarding", () => {
     await user.click(
       screen.getByRole("button", { name: "Continue to Workspace" }),
     );
-    await screen.findByRole("heading", {
-      name: "Start your discovery conversation",
-    });
+    await screen.findByRole("button", { name: "Edit business details" });
 
     await waitFor(() => {
       const saved = JSON.parse(
-        window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+        window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
       );
       expect(saved.session.sessionId).toBe(
         "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
@@ -245,7 +412,7 @@ describe("WorkspaceApp onboarding", () => {
 
     await waitFor(() => {
       const saved = JSON.parse(
-        window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+        window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
       );
       expect(saved.workspace.mode).toBe("active");
       expect(saved.conversation.messages).toHaveLength(2);
@@ -291,6 +458,279 @@ describe("WorkspaceApp onboarding", () => {
     expect(
       screen.queryByText("We couldn't continue the discovery."),
     ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires confirmation and shows success only for explicit sent status", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            httpStatus: 200,
+            success: true,
+            type: "email_confirmation",
+            reply: "Your Opportunity Brief has been sent to your email.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "sent",
+            emailMessage: "The Opportunity Brief was emailed successfully.",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    const emailButton = await screen.findByRole("button", {
+      name: "Email Brief",
+    });
+    await user.click(emailButton);
+
+    expect(
+      screen.getByRole("dialog", { name: "Email this Opportunity Brief?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/jor.*@northstar\.example/)).toBeInTheDocument();
+    expect(
+      screen.queryByText("jordan@northstar.example"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    expect(fetch).not.toHaveBeenCalled();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(emailButton).toHaveFocus();
+    await user.click(emailButton);
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(
+      await screen.findByText("Opportunity Brief sent"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Recipient: jordan@northstar\.example\./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Brief emailed" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText("Our reporting handoffs are unclear."),
+    ).toBeInTheDocument();
+    expect(emailButton).toBeDisabled();
+
+    const request = vi.mocked(fetch).mock.calls[0][0] as Request;
+    await expect(request.clone().json()).resolves.toMatchObject({
+      action: "email_brief",
+      userName: "Jordan Lee",
+      userEmail: "jordan@northstar.example",
+      message:
+        "Send me a structured summary of our conversation by email.",
+      brief: {
+        businessContext: "Northstar coordinates a complex reporting process.",
+        primaryChallenge: "Reporting ownership is unclear.",
+        currentWorkflow: ["Reports move between operations and finance."],
+        requirements: ["Clarify ownership at each handoff."],
+        recommendedDirection: null,
+        openQuestions: ["Who approves the final report?"],
+        nextStep: null,
+      },
+    });
+    await expect(request.clone().json()).resolves.not.toHaveProperty("name");
+    await expect(request.clone().json()).resolves.not.toHaveProperty("email");
+  });
+
+  it("restores a confirmed email without resending or duplicating messages", async () => {
+    window.history.replaceState(null, "", "/workspace#brief-panel");
+    seedEmailedWorkspace();
+
+    const firstRender = renderWorkspace();
+
+    expect(await screen.findByText("Opportunity Brief sent")).toBeInTheDocument();
+    expect(screen.getByText(/Recipient: jordan@northstar\.example\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Brief emailed" })).toBeDisabled();
+    expect(screen.getAllByText("Our reporting handoffs are unclear.")).toHaveLength(1);
+    expect(fetch).not.toHaveBeenCalled();
+
+    firstRender.unmount();
+    renderWorkspace();
+
+    expect(await screen.findByText("Opportunity Brief sent")).toBeInTheDocument();
+    expect(screen.getAllByText("Our reporting handoffs are unclear.")).toHaveLength(1);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(window.location.hash).toBe("#brief-panel");
+  });
+
+  it("marks an edited brief as updated and confirms the replacement email", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            type: "email_confirmation",
+            reply: "Your Opportunity Brief has been sent to your email.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "sent",
+            emailMessage: "The updated Opportunity Brief was emailed successfully.",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    seedEmailedWorkspace();
+    const saved = JSON.parse(
+      window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+    );
+    saved.brief.primaryChallenge.value = "The edited challenge is more specific.";
+    window.sessionStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(saved));
+    renderWorkspace();
+
+    expect(
+      await screen.findByText("Brief updated since last email"),
+    ).toBeInTheDocument();
+    const updateButton = screen.getByRole("button", {
+      name: "Email updated brief",
+    });
+    expect(updateButton).toBeEnabled();
+    await user.click(updateButton);
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(await screen.findByText("Opportunity Brief sent")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Brief emailed" })).toBeDisabled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels or confirms a new discovery without clearing a delivered inbox copy", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/workspace#brief-panel");
+    seedEmailedWorkspace({ complete: true });
+    renderWorkspace();
+
+    const resetButton = await screen.findByRole("button", {
+      name: "Start New Discovery",
+    });
+    await user.click(resetButton);
+    expect(screen.getByRole("dialog", { name: "Start a new discovery?" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByText("Opportunity Brief sent")).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY)).not.toBeNull();
+
+    await user.click(resetButton);
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Start a new discovery?" })).getByRole(
+        "button",
+        { name: "Start New Discovery" },
+      ),
+    );
+
+    expect(await screen.findByLabelText("Name")).toHaveValue("");
+    expect(window.location.pathname).toBe("/workspace");
+    expect(window.location.hash).toBe("");
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(WORKSPACE_STORAGE_KEY)).toBeNull(),
+    );
+  });
+
+  it("shows a failure when delivery is not explicitly confirmed", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            type: "chat_response",
+            reply: "The request was processed.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Email Brief" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(
+      await screen.findByText("The brief could not be emailed."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Your brief has been sent."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves the workspace and retries a failed email request", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            httpStatus: 502,
+            success: false,
+            type: "service_error",
+            reply: "The brief could not be emailed. Please try again.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "failed",
+            emailMessage: "The Opportunity Brief could not be emailed.",
+          }),
+          { status: 502, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            httpStatus: 200,
+            success: true,
+            type: "email_confirmation",
+            reply: "Your Opportunity Brief has been sent to your email.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "sent",
+            emailMessage: "The Opportunity Brief was emailed successfully.",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Email Brief" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(
+      await screen.findByText("The brief could not be emailed."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Which handoff causes the most delay?"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByText("Opportunity Brief sent"),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

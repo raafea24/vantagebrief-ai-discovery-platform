@@ -28,9 +28,9 @@ Browser
 → Next.js API Route
 → Server-side validation
 → Secured n8n webhook
-→ AI Agent
-→ Conversation Memory
-→ Gmail Tool when explicitly requested
+→ Explicit action router
+→ AI Agent and Conversation Memory for chat
+→ Direct Gmail node for email_brief
 → Structured n8n response
 → Next.js response normalization
 → Redux state
@@ -786,25 +786,19 @@ Track the explicit Gmail brief-delivery action.
 interface EmailState {
   status:
     | "idle"
-    | "reviewing"
-    | "structuring"
-    | "preparing"
-    | "sending"
+    | "processing"
     | "success"
     | "failed";
   maskedRecipient: string | null;
-  sentAt: string | null;
-  error: PublicError | null;
+  message: string | null;
+  error: string | null;
 }
 ```
 
 ## Actions
 
 ```text
-startEmailProcess
-setEmailStage
-setEmailSuccess
-setEmailFailure
+sendBriefEmail
 resetEmailState
 ```
 
@@ -815,8 +809,11 @@ Do not infer email success from:
 - A successful AI response
 - A completed chat request
 - A generated summary
-- A tool-call intention
+- An email-route intention
 - A timeout without an error
+
+While the current email state is `success`, additional email submissions are
+disabled. A genuine failure remains retryable.
 
 ---
 
@@ -855,10 +852,10 @@ POST /api/chat
 sendChatMessage
 ```
 
-Request type:
+Request types:
 
 ```typescript
-interface ChatRequest {
+interface ConversationChatRequest {
   message: string;
   sessionId: string;
   name: string;
@@ -866,6 +863,19 @@ interface ChatRequest {
   companyName: string;
   role: WorkspaceRole;
   initialChallenge: string;
+  action?: "chat";
+}
+
+interface EmailBriefChatRequest {
+  message: string;
+  sessionId: string;
+  userName: string;
+  userEmail: string;
+  companyName: string;
+  role: WorkspaceRole;
+  initialChallenge: string;
+  action: "email_brief";
+  brief: StructuredBriefPayload;
 }
 ```
 
@@ -873,28 +883,19 @@ Response type:
 
 ```typescript
 interface ChatResponse {
+  httpStatus?: number;
   success: boolean;
   type:
     | "chat_response"
     | "email_confirmation"
-    | "validation_error"
     | "service_error";
   reply: string;
   sessionId: string;
-  brief?: OpportunityBrief;
+  action?: "chat" | "email_brief";
+  brief?: BriefPatch;
+  emailStatus?: "sent" | "failed";
+  emailMessage?: string;
   progress?: DiscoveryProgress;
-  action?: EmailActionResult | null;
-}
-```
-
-Email action result:
-
-```typescript
-interface EmailActionResult {
-  name: "send_conversation_summary";
-  status: "completed" | "failed";
-  recipient?: string;
-  completedAt?: string;
 }
 ```
 
@@ -966,29 +967,32 @@ and do not call the production webhook.
 
 ## Trigger
 
-The email workflow may start through:
-
-- The explicit `Email brief` button
-- A user-written request detected by the AI Agent
+The email workflow starts only through the explicit `Email brief` action after
+user confirmation. Normal assistant messages do not invoke Gmail.
 
 The interface button should send:
 
 ```typescript
 {
   action: "email_brief",
-  message: "Send me a structured summary of our conversation by email."
+  message: "Send me a structured summary of our conversation by email.",
+  userName,
+  userEmail,
+  companyName,
+  role,
+  initialChallenge,
+  sessionId,
+  brief
 }
 ```
 
 ## UI stages
 
-The frontend may progressively display:
+The frontend displays a single honest processing state while awaiting the
+workflow result:
 
 ```text
-reviewing
-structuring
-preparing
-sending
+processing
 ```
 
 These are processing indicators only.
@@ -998,15 +1002,18 @@ These are processing indicators only.
 Set email status to `success` only when the API response contains:
 
 ```typescript
-action.status === "completed"
+success === true && emailStatus === "sent"
 ```
+
+Do not infer delivery from `type`, `reply`, or the action field alone. Every
+response that does not satisfy both success conditions becomes a failure.
 
 ## Failure condition
 
 Set email status to `failed` when:
 
 ```typescript
-action.status === "failed"
+success !== true || emailStatus !== "sent"
 ```
 
 or when the API request fails.
@@ -1146,26 +1153,16 @@ The route must:
 ## Request schema
 
 ```typescript
-const chatRequestSchema = z.object({
-  message: z.string().trim().min(1).max(4000),
-  sessionId: z
-    .string()
-    .trim()
-    .min(8)
-    .max(100)
-    .regex(/^[a-zA-Z0-9_-]+$/),
-  name: z.string().trim().min(1).max(100),
-  email: z.string().trim().email().max(254),
-  companyName: z.string().trim().min(1).max(120),
-  role: workspaceRoleSchema,
-  initialChallenge: z.string().trim().min(1).max(1500),
-});
+const chatRequestSchema = z.union([
+  conversationChatRequestSchema,
+  emailBriefChatRequestSchema,
+]);
 ```
 
 The server must normalize:
 
-- Name spacing
-- Email casing
+- User-name spacing
+- User-email casing
 - Message whitespace
 
 ---
@@ -1173,7 +1170,7 @@ The server must normalize:
 ## n8n request shape
 
 ```typescript
-interface N8nChatRequest {
+interface N8nConversationRequest {
   message: string;
   sessionId: string;
   name: string;
@@ -1182,6 +1179,19 @@ interface N8nChatRequest {
   role: WorkspaceRole;
   initialChallenge: string;
   action: "chat";
+  metadata: RequestMetadata;
+}
+
+interface N8nEmailBriefRequest {
+  message: string;
+  sessionId: string;
+  userName: string;
+  userEmail: string;
+  companyName: string;
+  role: WorkspaceRole;
+  initialChallenge: string;
+  action: "email_brief";
+  brief: StructuredBriefPayload;
   metadata: {
     source: "vantagebrief-web";
     requestId: string;
@@ -1234,7 +1244,7 @@ Recommended timeout:
 45–60 seconds
 ```
 
-The Gmail tool may require longer than a normal chat response.
+The direct Gmail branch may require longer than a normal chat response.
 
 Do not allow an unlimited request duration.
 
@@ -1326,16 +1336,14 @@ Do not allow an unlimited request duration.
 
 ```json
 {
+  "httpStatus": 200,
   "success": true,
   "type": "email_confirmation",
-  "reply": "Your conversation brief was sent successfully.",
-  "sessionId": "session-id",
-  "action": {
-    "name": "send_conversation_summary",
-    "status": "completed",
-    "recipient": "dsh••••@gmail.com",
-    "completedAt": "2026-07-30T16:00:00.000Z"
-  }
+  "action": "email_brief",
+  "emailStatus": "sent",
+  "emailMessage": "The Opportunity Brief was emailed successfully.",
+  "reply": "Your Opportunity Brief has been sent to your email.",
+  "sessionId": "session-id"
 }
 ```
 
@@ -1343,16 +1351,21 @@ Do not allow an unlimited request duration.
 
 ```json
 {
+  "httpStatus": 502,
   "success": false,
   "type": "service_error",
-  "reply": "Your brief was prepared, but the email could not be sent.",
-  "sessionId": "session-id",
-  "action": {
-    "name": "send_conversation_summary",
-    "status": "failed"
-  }
+  "action": "email_brief",
+  "emailStatus": "failed",
+  "emailMessage": "The Opportunity Brief could not be emailed.",
+  "reply": "The brief could not be emailed. Please try again.",
+  "sessionId": "session-id"
 }
 ```
+
+The n8n workflow must set `emailStatus` to `"sent"` only after the direct Gmail
+node reports successful delivery. Missing or malformed email confirmation
+fields are treated as failures. Reply-only responses remain compatible with
+normal chat requests.
 
 ---
 
@@ -1568,20 +1581,19 @@ Defense must exist at both layers.
 
 ---
 
-## Prompt injection protection
+## Prompt injection and email-route protection
 
-The AI Agent system instructions must prevent users from:
+The AI Agent system instructions must prevent credential disclosure and
+system-instruction exposure during normal chat. Email delivery does not depend
+on an AI tool call.
 
-- Changing the approved email recipient
-- Requesting credential disclosure
-- Exposing system instructions
-- Triggering Gmail for unrelated messages
-- Replacing tool rules
-- Sending to arbitrary recipients
+The server and explicit n8n email branch must:
 
-The server must never rely on the AI alone for recipient validation.
-
-The Gmail recipient must remain derived from the validated request data.
+- Accept only `action: "email_brief"`
+- Derive the Gmail recipient from validated `userEmail`
+- Reject arbitrary recipient overrides
+- Ignore assistant prose as an email trigger
+- Keep credentials and routing rules server-side
 
 ---
 

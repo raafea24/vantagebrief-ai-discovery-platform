@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   Building2,
+  ChevronDown,
   Mail,
   PencilLine,
   UserRound,
@@ -20,6 +21,7 @@ import { createWorkspaceSessionId } from "@/lib/session";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { createSession } from "@/store/features/session/sessionSlice";
 import { selectSession } from "@/store/features/session/sessionSelectors";
+import { initializeConversation } from "@/store/features/conversation/conversationSlice";
 import {
   completeOnboarding,
   setUserProfile,
@@ -147,6 +149,13 @@ export function OnboardingPanel() {
     const timestamp = new Date().toISOString();
 
     dispatch(setUserProfile(result.data));
+    dispatch(initializeConversation({
+      id: createWorkspaceSessionId(),
+      sender: "assistant",
+      content: `Thanks, ${result.data.fullName.split(/\s+/)[0]}. I’ve captured the starting context for ${result.data.companyName}. What happens today from the moment this challenge begins?`,
+      createdAt: timestamp,
+      status: "sent",
+    }));
     dispatch(completeOnboarding());
     if (!session.sessionId) {
       dispatch(
@@ -156,6 +165,10 @@ export function OnboardingPanel() {
         }),
       );
     }
+
+    window.history.replaceState(null, "", "/workspace#discovery-panel");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    window.history.replaceState(null, "", "/workspace#discovery-panel");
   }
 
   function fieldDescription(field: FormField, hintId?: string) {
@@ -281,6 +294,12 @@ export function OnboardingPanel() {
               </option>
             ))}
           </select>
+          <ChevronDown
+            className={styles.selectIndicator}
+            size={17}
+            strokeWidth={1.8}
+            aria-hidden="true"
+          />
         </FormFieldShell>
 
         <FormFieldShell
@@ -317,9 +336,6 @@ export function OnboardingPanel() {
         </button>
       </form>
 
-      <p className={styles.formPrivacy}>
-        Your information is used only to personalize this discovery session.
-      </p>
     </section>
   );
 }

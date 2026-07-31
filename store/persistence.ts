@@ -4,6 +4,7 @@ import { onboardingSchema } from "@/lib/schemas/onboardingSchema";
 import type {
   BriefState,
   ConversationState,
+  EmailState,
   SessionState,
   UserState,
   WorkspaceState,
@@ -33,6 +34,7 @@ const persistedWorkspaceUiSchema = z.object({
     "direction",
     "brief",
   ]),
+  selectedPanel: z.enum(["conversation", "brief"]).default("conversation"),
 });
 
 const legacyWorkspaceUiSchema = z
@@ -43,6 +45,7 @@ const legacyWorkspaceUiSchema = z
   .transform((workspace): WorkspaceState => ({
     mode: workspace.mode === "initiated" ? "active" : "empty",
     discoveryStage: workspace.discoveryStage,
+    selectedPanel: "conversation",
   }));
 
 const persistedMessageSchema = z.object({
@@ -116,6 +119,22 @@ const persistedBriefSchema = z.object({
   nextStep: nullableTextFieldSchema,
 });
 
+const persistedEmailSchema = z
+  .object({
+    status: z.enum(["idle", "success", "updated", "failed"]),
+    maskedRecipient: z.string().max(254).nullable(),
+    confirmedRecipient: z.string().email().max(254).nullable(),
+    message: z.string().max(500).nullable(),
+    error: z.string().max(500).nullable(),
+    sentBriefFingerprint: z.string().max(20_000).nullable(),
+  })
+  .refine(
+    (email) =>
+      email.status !== "success" ||
+      Boolean(email.confirmedRecipient && email.sentBriefFingerprint),
+    { message: "Confirmed email state is incomplete." },
+  );
+
 const legacyBriefSchema = z
   .object({
     status: z.literal("not_started"),
@@ -153,6 +172,7 @@ const persistedWorkspaceSchema = z.object({
     .union([persistedConversationSchema, legacyConversationSchema])
     .optional(),
   brief: z.union([persistedBriefSchema, legacyBriefSchema]).optional(),
+  email: persistedEmailSchema.optional(),
 });
 
 export interface PersistedWorkspaceState {
@@ -162,6 +182,7 @@ export interface PersistedWorkspaceState {
   workspace?: WorkspaceState;
   conversation?: ConversationState;
   brief?: BriefState;
+  email?: EmailState;
 }
 
 export function readPersistedWorkspace(
@@ -229,6 +250,15 @@ function createPersistedWorkspace(
       failedRequest,
     },
     brief: state.brief,
+    email: {
+      ...state.email,
+      status:
+        state.email.status === "processing" ? "failed" : state.email.status,
+      error:
+        state.email.status === "processing"
+          ? "The previous email request was interrupted. Please try again."
+          : state.email.error,
+    },
   };
   const result = persistedWorkspaceSchema.safeParse(candidate);
 
@@ -237,7 +267,7 @@ function createPersistedWorkspace(
 
 export function subscribeToWorkspacePersistence(
   store: AppStore,
-  storage: Pick<Storage, "setItem">,
+  storage: Pick<Storage, "setItem" | "removeItem">,
 ) {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let previousValue = "";
@@ -246,6 +276,9 @@ export function subscribeToWorkspacePersistence(
     const persistedState = createPersistedWorkspace(store.getState());
 
     if (!persistedState) {
+      clearTimeout(timeout);
+      storage.removeItem(WORKSPACE_STORAGE_KEY);
+      previousValue = "";
       return;
     }
 

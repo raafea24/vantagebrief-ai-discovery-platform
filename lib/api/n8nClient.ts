@@ -24,13 +24,10 @@ export class N8nClientError extends Error {
   }
 }
 
-interface N8nChatPayload extends ValidatedChatRequest {
-  action: "chat";
-  metadata: {
-    source: "vantagebrief-web";
-    requestId: string;
-    timestamp: string;
-  };
+interface N8nRequestMetadata {
+  source: "vantagebrief-web";
+  requestId: string;
+  timestamp: string;
 }
 
 function normalizeBrief(brief: unknown): BriefPatch | undefined {
@@ -102,13 +99,16 @@ export async function sendN8nChatRequest(
     () => controller.abort(),
     environment.N8N_REQUEST_TIMEOUT_MS,
   );
-  const payload: N8nChatPayload = {
+  const metadata: N8nRequestMetadata = {
+    source: "vantagebrief-web",
+    requestId: randomUUID(),
+    timestamp: new Date().toISOString(),
+  };
+  const payload = {
     ...request,
-    action: "chat",
+    action: request.action ?? "chat",
     metadata: {
-      source: "vantagebrief-web",
-      requestId: randomUUID(),
-      timestamp: new Date().toISOString(),
+      ...metadata,
     },
   };
 
@@ -138,38 +138,84 @@ export async function sendN8nChatRequest(
     clearTimeout(timeout);
   }
 
-  if (!response.ok) {
-    throw new N8nClientError("webhook");
-  }
-
   let responseBody: unknown;
 
   try {
     responseBody = await response.json();
   } catch {
-    throw new N8nClientError("malformed_response");
+    throw new N8nClientError(
+      response.ok ? "malformed_response" : "webhook",
+    );
   }
 
   const parsedResponse = n8nChatResponseSchema.safeParse(responseBody);
 
   if (
     !parsedResponse.success ||
-    !parsedResponse.data.success ||
-    parsedResponse.data.type !== "chat_response" ||
     parsedResponse.data.sessionId !== request.sessionId
   ) {
     throw new N8nClientError("malformed_response");
   }
 
+  const requestedAction = request.action ?? "chat";
+
   const briefPatch = parsedResponse.data.brief
     ? normalizeBrief(parsedResponse.data.brief)
     : undefined;
 
+  if (requestedAction === "chat") {
+    if (!response.ok) {
+      throw new N8nClientError("webhook");
+    }
+    if (
+      !parsedResponse.data.success ||
+      parsedResponse.data.type !== "chat_response"
+    ) {
+      throw new N8nClientError("malformed_response");
+    }
+
+    return {
+      success: true,
+      type: "chat_response",
+      reply: parsedResponse.data.reply,
+      sessionId: parsedResponse.data.sessionId,
+      action: "chat",
+      ...(briefPatch ? { brief: briefPatch } : {}),
+    };
+  }
+
+  const isConfirmedSuccess =
+    response.ok &&
+    parsedResponse.data.httpStatus === 200 &&
+    parsedResponse.data.success === true &&
+    parsedResponse.data.type === "email_confirmation" &&
+    parsedResponse.data.action === "email_brief" &&
+    parsedResponse.data.emailStatus === "sent";
+  const isConfirmedFailure =
+    parsedResponse.data.httpStatus === 502 &&
+    parsedResponse.data.success === false &&
+    parsedResponse.data.type === "service_error" &&
+    parsedResponse.data.action === "email_brief" &&
+    parsedResponse.data.emailStatus === "failed" &&
+    (response.ok || response.status === 502);
+
+  if (!isConfirmedSuccess && !isConfirmedFailure) {
+    throw new N8nClientError(
+      response.ok ? "malformed_response" : "webhook",
+    );
+  }
+
   return {
-    success: true,
-    type: "chat_response",
+    httpStatus: isConfirmedSuccess ? 200 : 502,
+    success: isConfirmedSuccess,
+    type: isConfirmedSuccess ? "email_confirmation" : "service_error",
     reply: parsedResponse.data.reply,
     sessionId: parsedResponse.data.sessionId,
-    ...(briefPatch ? { briefPatch } : {}),
+    action: "email_brief",
+    ...(briefPatch ? { brief: briefPatch } : {}),
+    emailStatus: isConfirmedSuccess ? "sent" : "failed",
+    ...(parsedResponse.data.emailMessage
+      ? { emailMessage: parsedResponse.data.emailMessage }
+      : {}),
   };
 }

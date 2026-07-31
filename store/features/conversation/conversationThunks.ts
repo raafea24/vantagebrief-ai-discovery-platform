@@ -2,7 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { createWorkspaceSessionId } from "@/lib/session";
 import type { RootState } from "@/store";
 import { chatApi } from "@/store/api/chatApi";
-import type { ChatApiErrorResponse } from "@/types/chat";
+import { getSafeChatErrorMessage } from "@/store/api/chatError";
 import type {
   BriefPatch,
   ConversationMessage,
@@ -23,28 +23,6 @@ interface SendMessageResult {
 interface SendMessageFailure {
   userMessageId: string;
   message: string;
-}
-
-function getSafeErrorMessage(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "data" in error &&
-    typeof error.data === "object" &&
-    error.data !== null &&
-    "error" in error.data
-  ) {
-    const data = error.data as ChatApiErrorResponse;
-
-    if (
-      typeof data.error?.message === "string" &&
-      data.error.message.length <= 300
-    ) {
-      return data.error.message;
-    }
-  }
-
-  return "VantageBrief could not continue the discovery just now. Your message is preserved.";
 }
 
 export const sendConversationMessage = createAsyncThunk<
@@ -87,12 +65,15 @@ export const sendConversationMessage = createAsyncThunk<
           createdAt: new Date().toISOString(),
           status: "sent",
         },
-        briefPatch: result.briefPatch,
+        briefPatch: result.brief,
       };
     } catch (error) {
       return rejectWithValue({
         userMessageId: message.id,
-        message: getSafeErrorMessage(error),
+        message: getSafeChatErrorMessage(
+          error,
+          "VantageBrief could not continue the discovery just now. Your message is preserved.",
+        ),
       });
     }
   },

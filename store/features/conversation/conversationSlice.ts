@@ -14,6 +14,12 @@ const conversationSlice = createSlice({
   name: "conversation",
   initialState: initialConversationState,
   reducers: {
+    initializeConversation(state, action: PayloadAction<ConversationState["messages"][number]>) {
+      if (state.messages.length === 0) state.messages.push(action.payload);
+    },
+    addCompletionMessage(state, action: PayloadAction<ConversationState["messages"][number]>) {
+      if (!state.messages.some((message) => message.id === action.payload.id)) state.messages.push(action.payload);
+    },
     setMessageDraft(state, action: PayloadAction<string>) {
       state.draft = action.payload;
     },
@@ -91,8 +97,10 @@ const conversationSlice = createSlice({
 });
 
 export const {
+  addCompletionMessage,
   clearConversationError,
   hydrateConversation,
+  initializeConversation,
   resetConversation,
   setMessageDraft,
 } = conversationSlice.actions;

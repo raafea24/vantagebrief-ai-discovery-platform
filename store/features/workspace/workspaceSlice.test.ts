@@ -12,6 +12,7 @@ describe("workspaceSlice", () => {
     ).toEqual({
       mode: "active",
       discoveryStage: "challenge",
+      selectedPanel: "conversation",
     });
   });
 });

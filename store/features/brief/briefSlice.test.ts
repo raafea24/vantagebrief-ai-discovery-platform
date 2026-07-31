@@ -60,4 +60,74 @@ describe("briefSlice", () => {
       "Who owns the handoff?",
     ]);
   });
+
+  it("marks incomplete sections as pending and requires real data for completion", () => {
+    const meaningless = briefReducer(
+      initialBriefState,
+      fulfilledAction("request-meaningless", {
+        businessContext: "x",
+        currentWorkflow: ["?"],
+      }),
+    );
+
+    expect(meaningless.businessContext.value).toBeNull();
+    expect(meaningless.currentWorkflow.value).toEqual([]);
+    expect(meaningless.status).toBe("pending");
+
+    const partial = briefReducer(
+      initialBriefState,
+      fulfilledAction("request-partial", {
+        primaryChallenge: "Reporting handoffs are unclear.",
+        currentWorkflow: ["Analysts consolidate reports manually."],
+        requirements: ["Clarify report ownership."],
+        recommendedDirection: "Define one accountable report owner.",
+        nextStep: "Review the proposed ownership model.",
+      }),
+    );
+
+    expect(partial.status).toBe("current");
+    expect(partial.businessContext.status).toBe("current");
+    expect(partial.openQuestions.status).toBe("pending");
+
+    const complete = briefReducer(
+      partial,
+      fulfilledAction("request-complete", {
+        businessContext: "Acme prepares weekly operational reports.",
+      }),
+    );
+
+    expect(complete.status).toBe("complete");
+    expect(complete.businessContext.status).toBe("complete");
+    expect(complete.nextStep.status).toBe("complete");
+    expect(complete.openQuestions.status).toBe("pending");
+  });
+
+  it("merges list patches without deleting or duplicating existing values", () => {
+    const first = briefReducer(
+      initialBriefState,
+      fulfilledAction("request-list-1", {
+        requirements: ["Clarify ownership."],
+        openQuestions: ["Who owns the current approval?"],
+      }),
+    );
+    const second = briefReducer(
+      first,
+      fulfilledAction("request-list-2", {
+        requirements: ["Clarify ownership.", "Define approval timing."],
+        openQuestions: [
+          "Who owns the current approval?",
+          "When does finance review it?",
+        ],
+      }),
+    );
+
+    expect(second.requirements.value).toEqual([
+      "Clarify ownership.",
+      "Define approval timing.",
+    ]);
+    expect(second.openQuestions.value).toEqual([
+      "Who owns the current approval?",
+      "When does finance review it?",
+    ]);
+  });
 });

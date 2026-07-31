@@ -1,7 +1,8 @@
 .workspace {
   display: grid;
-  min-height: 100vh;
+  min-height: 100dvh;
   grid-template-columns: 15.5rem minmax(0, 1fr);
+  overflow-x: clip;
   background: var(--color-canvas);
   color: var(--color-ink);
 }
@@ -112,6 +113,7 @@
 
 .workspaceMain {
   min-width: 0;
+  overflow-x: clip;
 }
 
 .workspaceHeader {
@@ -213,7 +215,7 @@
 
 .progress ol {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(7.5rem, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
@@ -223,16 +225,18 @@
   position: relative;
   display: grid;
   min-width: 0;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-3);
-  padding-right: var(--space-4);
+  grid-template-rows: 2rem auto;
+  justify-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+  text-align: center;
 }
 
 .progress li::after {
   position: absolute;
   top: 1rem;
-  right: 0.45rem;
-  left: 2.75rem;
+  right: calc(-50% + 1rem);
+  left: calc(50% + 1rem);
   z-index: 0;
   height: 1px;
   background: var(--color-border);
@@ -263,7 +267,7 @@
   color: var(--color-surface);
 }
 
-.progress li[data-state="current"] > span {
+.progress li[data-state="active"] > span {
   border-color: var(--color-ink);
   background: var(--color-ink);
   color: var(--color-surface);
@@ -271,7 +275,7 @@
 
 .progress li > div {
   min-width: 0;
-  padding-top: 0.15rem;
+  width: 100%;
 }
 
 .progress strong,
@@ -281,10 +285,11 @@
 
 .progress strong {
   font-size: 0.66rem;
+  line-height: 1.35;
 }
 
 .progress small {
-  max-width: 8rem;
+  max-width: 10rem;
   margin-top: 0.22rem;
   color: var(--color-ink-muted);
   font-size: 0.52rem;
@@ -293,8 +298,8 @@
 
 .workspaceContent {
   display: grid;
-  min-height: calc(100vh - 12.7rem);
-  grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 1fr);
   gap: var(--space-4);
   padding: var(--space-4);
 }
@@ -302,6 +307,7 @@
 .conversationPanel,
 .briefPanel {
   min-width: 0;
+  scroll-margin-top: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-surface) 72%, var(--color-canvas));
@@ -310,7 +316,9 @@
 
 .conversationPanel {
   display: flex;
-  min-height: 42rem;
+  height: clamp(35rem, calc(100dvh - 15.5rem), 50rem);
+  min-height: 0;
+  overflow: hidden;
   flex-direction: column;
   padding: clamp(1.5rem, 3vw, 3rem);
 }
@@ -319,7 +327,7 @@
   display: grid;
   max-width: 47rem;
   justify-items: center;
-  margin: auto auto 2rem;
+  margin: auto;
   text-align: center;
 }
 
@@ -508,7 +516,7 @@
 }
 
 .conversationPanelActive {
-  min-height: 42rem;
+  min-height: 0;
   padding: 1.25rem;
 }
 
@@ -523,8 +531,7 @@
 
 .timeline {
   display: flex;
-  min-height: 20rem;
-  max-height: calc(100vh - 27rem);
+  min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: var(--space-5, 1.25rem);
@@ -688,7 +695,10 @@
 }
 
 .briefPanel {
-  align-self: start;
+  display: grid;
+  height: clamp(35rem, calc(100dvh - 15.5rem), 50rem);
+  min-height: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -719,13 +729,49 @@
   font-weight: 400;
 }
 
-.briefPanel > header > span {
+.briefHeaderActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.briefHeaderActions > span {
   flex: none;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 0.35rem 0.55rem;
   color: var(--color-ink-muted);
   font-size: 0.54rem;
+}
+
+.briefHeaderActions > button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.7rem;
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.briefHeaderActions > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.briefHeaderActions > button:focus-visible,
+.emailStatus button:focus-visible,
+.emailDialog button:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
 }
 
 .briefIntroduction {
@@ -768,10 +814,67 @@
   line-height: 1.55;
 }
 
+.emailStatus {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.65rem;
+  margin: 0.8rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--color-brass) 5%, var(--color-surface));
+  color: var(--color-brass);
+}
+
+.emailStatus strong {
+  display: block;
+  color: var(--color-ink);
+  font-size: 0.62rem;
+}
+
+.emailStatus p {
+  margin: 0.2rem 0 0;
+  color: var(--color-ink-muted);
+  font-size: 0.55rem;
+  line-height: 1.5;
+}
+
+.emailStatus button {
+  display: inline-flex;
+  min-height: 1.9rem;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.54rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.emailStatusSuccess {
+  border-color: color-mix(in srgb, var(--color-success) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 7%, var(--color-surface));
+  color: var(--color-success);
+}
+
+.emailStatusError {
+  border-color: color-mix(in srgb, var(--color-danger) 25%, var(--color-border));
+  color: var(--color-danger);
+}
+
 .briefSections {
   display: grid;
   gap: var(--space-2);
   padding: 0 1rem 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
 }
 
 .briefSection {
@@ -858,6 +961,127 @@
   display: none;
 }
 
+.briefSectionState {
+  color: var(--color-brass) !important;
+  font-weight: 700;
+}
+
+.briefSection[data-status="complete"] .briefSectionState {
+  color: var(--color-success) !important;
+}
+
+.briefSection[data-status="pending"] .briefSectionState {
+  color: var(--color-ink-muted) !important;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.backToWebsite {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: .65rem .75rem;
+  color: var(--color-ink-muted);
+  font-size: .875rem;
+  font-weight: 700;
+}
+
+.dialogBackdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgb(7 22 40 / 42%);
+}
+
+.emailDialog {
+  width: min(28rem, 100%);
+  border: 1px solid color-mix(in srgb, var(--color-brass) 42%, var(--color-border));
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-ink);
+}
+
+.emailDialogIcon {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-brass) 10%, var(--color-surface));
+  color: var(--color-brass);
+}
+
+.emailDialogEyebrow {
+  margin: var(--space-4) 0 0;
+  color: var(--color-brass);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.emailDialog h2 {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display), serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.emailDialog > p:last-of-type {
+  margin: 0.75rem 0 0;
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.emailDialog > p strong {
+  color: var(--color-ink);
+  font-weight: 750;
+}
+
+.emailDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: 1.25rem;
+}
+
+.emailDialogActions button {
+  min-height: 2.65rem;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.emailDialogCancel {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.emailDialogConfirm {
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-surface);
+}
+
 @media (max-width: 68rem) {
   .workspace {
     grid-template-columns: 12.5rem minmax(0, 1fr);
@@ -873,7 +1097,21 @@
   }
 
   .workspaceContent {
-    grid-template-columns: minmax(0, 1fr) 18rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .conversationPanel,
+  .briefPanel {
+    height: clamp(35rem, calc(100dvh - 8rem), 48rem);
+    max-height: none;
+  }
+
+  .conversationPanel {
+    min-height: 0;
+  }
+
+  .briefPanel {
+    min-height: 0;
   }
 
   .quickPrompts {
@@ -922,7 +1160,7 @@
   }
 
   .workspaceContent {
-    grid-template-columns: minmax(0, 1fr) 16.5rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .conversationPanel {
@@ -1022,12 +1260,13 @@
 
   .progress {
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
     padding: 1rem;
     scrollbar-width: thin;
   }
 
   .progress ol {
-    min-width: 38rem;
+    min-width: 48rem;
   }
 
   .mobileTabs {
@@ -1039,8 +1278,11 @@
     background: color-mix(in srgb, var(--color-surface) 56%, var(--color-canvas));
   }
 
-  .mobileTabs button {
+  .mobileTabs a {
+    display: inline-flex;
     min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: transparent;
@@ -1050,7 +1292,7 @@
     font-weight: 750;
   }
 
-  .mobileTabs button[aria-selected="true"] {
+  .mobileTabs a[aria-selected="true"] {
     border-color: var(--color-ink);
     background: var(--color-ink);
     color: var(--color-surface);
@@ -1063,12 +1305,26 @@
   }
 
   .conversationPanel {
-    min-height: 42rem;
+    height: clamp(34rem, calc(100dvh - 4rem), 42rem);
+    min-height: 0;
     padding: 2rem 1rem;
   }
 
   .briefPanel {
+    height: clamp(34rem, calc(100dvh - 4rem), 42rem);
+  }
+
+  .briefPanel {
     width: 100%;
+  }
+
+  .briefPanel > header {
+    align-items: flex-start;
+  }
+
+  .briefHeaderActions {
+    align-items: flex-end;
+    flex-direction: column;
   }
 
   .mobileHidden {
@@ -1092,8 +1348,8 @@
   }
 
   .timeline {
-    min-height: 24rem;
-    max-height: 54vh;
+    min-height: 0;
+    max-height: none;
     padding-inline: 0;
   }
 
@@ -1132,11 +1388,266 @@
     max-width: 14rem;
   }
 
+  .briefPanel > header {
+    flex-direction: column;
+  }
+
+  .briefHeaderActions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .emailStatus {
+    grid-template-columns: auto 1fr;
+  }
+
+  .emailStatus button {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .dialogBackdrop {
+    align-items: end;
+    padding: var(--space-3);
+  }
+
+  .emailDialog {
+    padding: 1.25rem;
+  }
+
+  .emailDialogActions {
+    flex-direction: column-reverse;
+  }
+
+  .emailDialogActions button {
+    width: 100%;
+  }
+
   .emptyConversation h1 {
     font-size: 2.25rem;
   }
 
   .composerFooter > span {
     max-width: 13rem;
+  }
+}
+
+/* Readability refinements */
+@media (min-width: 48.0625rem) {
+  .workspace { grid-template-columns: 16.25rem minmax(0, 1fr); font-size: 1rem; }
+  .sidebar nav a { font-size: 1rem; }
+  .workspaceHeader > div:first-child > p { font-size: clamp(2.125rem, 2.6vw, 2.5rem); line-height: 1.12; }
+  .workspaceHeader > div:first-child > span { font-size: .875rem; }
+  .progress strong { font-size: .9375rem; }
+  .progress small { max-width: 10rem; font-size: .8125rem; }
+  .workspaceContent { gap: clamp(1.125rem, 1.5vw, 1.5rem); padding: clamp(1.125rem, 1.5vw, 1.5rem); }
+  .emptyConversation h1 { font-size: clamp(2.125rem, 3vw, 2.5rem); line-height: 1.08; }
+  .emptyConversation > p { font-size: 1rem; }
+  .quickPromptsCompact button { min-height: 5rem; padding: .9rem; }
+  .quickPromptsCompact button > span { font-size: .875rem; }
+  .composer { padding: 1.125rem; }
+  .composer textarea { min-height: 5rem; font-size: 1rem; }
+  .composerFooter > span, .personalizationNote, .timelineDate, .messageMeta, .messageMeta strong { font-size: .8125rem; }
+  .message { width: min(90%, 42rem); }
+  .message p { padding: 1rem 1.125rem; font-size: 1rem; }
+  .briefPanel > header { padding: 1.25rem 1.5rem; }
+  .briefPanel > header h2 { font-size: 1.875rem; }
+  .briefIntroduction p, .briefActiveIntroduction, .briefSection p, .briefSection ul, .briefSection small { font-size: .875rem; }
+  .briefActiveIntroduction { padding: 1rem 1.5rem; }
+  .briefSections, .briefPanelActive .briefSections { gap: var(--space-3); padding: 0 1.5rem 1.5rem; }
+  .briefSection, .briefPanelActive .briefSection { padding: 1rem 0; }
+  .briefSection strong { font-size: .9375rem; }
+  .briefSection small { overflow: visible; text-overflow: clip; overflow-wrap: anywhere; white-space: normal; }
+}
+
+@media (min-width: 68.0625rem) and (max-width: 75rem) {
+  .workspace { grid-template-columns: 15.625rem minmax(0, 1fr); }
+  .workspaceContent { grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 1fr); }
+}
+
+/* Workspace interaction system */
+.sidebar nav a,
+.contextCard summary,
+.headerActions button,
+.quickPrompts button,
+.composerFooter button,
+.conversationError button,
+.briefHeaderActions > button,
+.emailStatus button,
+.mobileTabs a,
+.emailDialogActions button {
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-standard) ease,
+    color var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+.headerActions button,
+.composerFooter button,
+.briefHeaderActions > button,
+.emailStatus button,
+.mobileTabs a,
+.emailDialogActions button {
+  min-height: 2.75rem;
+}
+
+.quickPrompts button > svg:last-child,
+.headerActions button svg,
+.briefHeaderActions > button svg,
+.conversationError button svg,
+.emailStatus button svg {
+  transition: transform var(--motion-standard) var(--motion-ease);
+}
+
+.sidebar nav a:focus-visible,
+.contextCard summary:focus-visible,
+.headerActions button:focus-visible,
+.quickPrompts button:focus-visible,
+.composerFooter button:focus-visible,
+.conversationError button:focus-visible,
+.mobileTabs a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.quickPrompts button:focus-visible {
+  border-color: color-mix(in srgb, var(--color-brass) 68%, var(--color-border));
+  background: color-mix(in srgb, var(--color-brass) 5%, var(--color-surface));
+  box-shadow: 0 9px 22px rgb(23 32 51 / 0.08);
+}
+
+.headerActions button:not(:disabled):active,
+.quickPrompts button:not(:disabled):active,
+.composerFooter button:not(:disabled):active,
+.conversationError button:not(:disabled):active,
+.briefHeaderActions > button:not(:disabled):active,
+.emailStatus button:not(:disabled):active,
+.mobileTabs a:active,
+.emailDialogActions button:not(:disabled):active {
+  box-shadow: none;
+  transform: scale(0.985);
+}
+
+.headerActions button:disabled,
+.quickPrompts button:disabled,
+.composerFooter button:disabled,
+.conversationError button:disabled,
+.briefHeaderActions > button:disabled,
+.emailStatus button:disabled,
+.emailDialogActions button:disabled {
+  box-shadow: none;
+  transform: none;
+}
+
+.composer {
+  transition:
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-standard) ease;
+}
+
+.briefSection {
+  transition:
+    border-color var(--motion-standard) ease,
+    background-color var(--motion-standard) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sidebar nav a:not([aria-current="page"]):hover {
+    background: color-mix(in srgb, var(--color-brass) 7%, transparent);
+    color: var(--color-ink);
+  }
+
+  .contextCard summary:hover {
+    background: color-mix(in srgb, var(--color-brass) 6%, transparent);
+    color: var(--color-focus);
+  }
+
+  .headerActions button:hover,
+  .emailStatus button:hover,
+  .emailDialogCancel:hover {
+    border-color: var(--color-brass);
+    background: color-mix(in srgb, var(--color-brass) 6%, var(--color-surface));
+  }
+
+  .headerActions button:hover svg {
+    transform: translateY(-1px);
+  }
+
+  .quickPrompts button:hover {
+    border-color: color-mix(in srgb, var(--color-brass) 68%, var(--color-border));
+    background: color-mix(in srgb, var(--color-brass) 5%, var(--color-surface));
+    box-shadow: 0 9px 22px rgb(23 32 51 / 0.08);
+    transform: translateY(-4px);
+  }
+
+  .quickPrompts button:hover > svg:last-child {
+    transform: translate(3px, -2px);
+  }
+
+  .composerFooter button:not(:disabled):hover,
+  .briefHeaderActions > button:not(:disabled):hover,
+  .emailDialogConfirm:not(:disabled):hover {
+    background: color-mix(in srgb, var(--color-ink) 90%, white);
+    box-shadow: 0 7px 18px rgb(23 32 51 / 0.14);
+    transform: translateY(-1px);
+  }
+
+  .composerFooter button:not(:disabled):hover svg,
+  .briefHeaderActions > button:not(:disabled):hover svg {
+    transform: translateY(-2px);
+  }
+
+  .conversationError button:hover {
+    background: color-mix(in srgb, var(--color-danger) 5%, var(--color-surface));
+  }
+
+  .briefSection:hover {
+    border-color: color-mix(in srgb, var(--color-brass) 34%, var(--color-border));
+    background: color-mix(in srgb, var(--color-brass) 3%, transparent);
+  }
+
+  .mobileTabs a:not([aria-selected="true"]):hover {
+    border-color: var(--color-brass);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar nav a,
+  .contextCard summary,
+  .headerActions button,
+  .quickPrompts button,
+  .composer,
+  .composerFooter button,
+  .conversationError button,
+  .briefSection,
+  .briefHeaderActions > button,
+  .emailStatus button,
+  .mobileTabs a,
+  .emailDialogActions button,
+  .quickPrompts button > svg:last-child,
+  .headerActions button svg,
+  .briefHeaderActions > button svg {
+    transition-duration: 0.01ms;
+  }
+
+  .headerActions button:hover,
+  .quickPrompts button:hover,
+  .composerFooter button:hover,
+  .briefHeaderActions > button:hover,
+  .emailDialogActions button:hover,
+  .headerActions button:active,
+  .quickPrompts button:active,
+  .composerFooter button:active,
+  .briefHeaderActions > button:active,
+  .emailDialogActions button:active,
+  .quickPrompts button:hover > svg:last-child,
+  .headerActions button:hover svg,
+  .briefHeaderActions > button:hover svg {
+    transform: none;
   }
 }

@@ -3,10 +3,8 @@ import styles from "./DiscoveryWorkspace.module.css";
 
 export function MobileWorkspaceSwitcher({
   activePanel,
-  onChange,
 }: {
   activePanel: MobilePanel;
-  onChange: (panel: MobilePanel) => void;
 }) {
   return (
     <div
@@ -14,26 +12,24 @@ export function MobileWorkspaceSwitcher({
       role="tablist"
       aria-label="Workspace panels"
     >
-      <button
+      <a
         id="conversation-tab"
-        type="button"
+        href="/workspace#discovery-panel"
         role="tab"
         aria-selected={activePanel === "conversation"}
-        aria-controls="conversation-panel"
-        onClick={() => onChange("conversation")}
+        aria-controls="discovery-panel"
       >
         Conversation
-      </button>
-      <button
+      </a>
+      <a
         id="brief-tab"
-        type="button"
+        href="/workspace#brief-panel"
         role="tab"
         aria-selected={activePanel === "brief"}
         aria-controls="brief-panel"
-        onClick={() => onChange("brief")}
       >
         Brief
-      </button>
+      </a>
     </div>
   );
 }
