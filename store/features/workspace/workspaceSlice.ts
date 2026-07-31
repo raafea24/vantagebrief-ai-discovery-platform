@@ -5,6 +5,7 @@ import type {
   WorkspaceState,
 } from "@/types/workspace";
 import { sendConversationMessage } from "@/store/features/conversation/conversationThunks";
+import { sendBriefEmail } from "@/store/features/email/emailThunks";
 
 export const initialWorkspaceState: WorkspaceState = {
   mode: "empty",
@@ -34,20 +35,37 @@ const workspaceSlice = createSlice({
         state.mode = "active";
       })
       .addCase(sendConversationMessage.fulfilled, (state, action) => {
-        const patch = action.payload.briefPatch;
-
-        if (patch?.recommendedDirection) {
-          state.discoveryStage = "direction";
-        } else if (patch?.requirements?.length) {
-          state.discoveryStage = "requirements";
-        } else if (patch?.currentWorkflow?.length) {
-          state.discoveryStage = "workflow";
-        } else {
-          state.discoveryStage = "challenge";
-        }
+        updateDiscoveryStage(state, action.payload.briefPatch);
+      })
+      .addCase(sendBriefEmail.fulfilled, (state, action) => {
+        updateDiscoveryStage(state, action.payload.briefPatch);
       });
   },
 });
+
+function updateDiscoveryStage(
+  state: WorkspaceState,
+  patch:
+    | {
+        currentWorkflow?: string[];
+        requirements?: string[];
+        recommendedDirection?: string;
+        nextStep?: string;
+      }
+    | undefined,
+) {
+  if (patch?.nextStep) {
+    state.discoveryStage = "brief";
+  } else if (patch?.recommendedDirection) {
+    state.discoveryStage = "direction";
+  } else if (patch?.requirements?.length) {
+    state.discoveryStage = "requirements";
+  } else if (patch?.currentWorkflow?.length) {
+    state.discoveryStage = "workflow";
+  } else {
+    state.discoveryStage = "challenge";
+  }
+}
 
 export const {
   hydrateWorkspace,

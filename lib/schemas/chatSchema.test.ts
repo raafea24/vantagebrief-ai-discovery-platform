@@ -36,6 +36,12 @@ describe("chat schemas", () => {
         webhookUrl: "https://not-allowed.example",
       }).success,
     ).toBe(false);
+    expect(
+      chatRequestSchema.safeParse({
+        ...validRequest,
+        action: "send_without_confirmation",
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts a reply-only n8n response", () => {
@@ -50,9 +56,8 @@ describe("chat schemas", () => {
     expect(chatApiResponseSchema.safeParse(response).success).toBe(true);
   });
 
-  it("rejects malformed structured brief data", () => {
-    expect(
-      n8nChatResponseSchema.safeParse({
+  it("safely omits malformed optional structured data", () => {
+    const result = n8nChatResponseSchema.safeParse({
         success: true,
         type: "chat_response",
         reply: "Thanks.",
@@ -63,7 +68,33 @@ describe("chat schemas", () => {
             value: "",
           },
         },
+        emailStatus: "maybe",
+      });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.brief).toBeUndefined();
+      expect(result.data.emailStatus).toBeUndefined();
+    }
+  });
+
+  it("validates the email action and explicit email response fields", () => {
+    expect(
+      chatRequestSchema.parse({
+        ...validRequest,
+        action: "email_brief",
+      }).action,
+    ).toBe("email_brief");
+    expect(
+      chatApiResponseSchema.safeParse({
+        success: true,
+        type: "email_confirmation",
+        reply: "The email workflow completed.",
+        sessionId: validRequest.sessionId,
+        action: "email_brief",
+        emailStatus: "sent",
+        emailMessage: "Delivery was confirmed.",
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 });

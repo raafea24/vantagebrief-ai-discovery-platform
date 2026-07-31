@@ -786,25 +786,20 @@ Track the explicit Gmail brief-delivery action.
 interface EmailState {
   status:
     | "idle"
-    | "reviewing"
-    | "structuring"
-    | "preparing"
-    | "sending"
+    | "processing"
     | "success"
+    | "neutral"
     | "failed";
   maskedRecipient: string | null;
-  sentAt: string | null;
-  error: PublicError | null;
+  message: string | null;
+  error: string | null;
 }
 ```
 
 ## Actions
 
 ```text
-startEmailProcess
-setEmailStage
-setEmailSuccess
-setEmailFailure
+sendBriefEmail
 resetEmailState
 ```
 
@@ -866,6 +861,7 @@ interface ChatRequest {
   companyName: string;
   role: WorkspaceRole;
   initialChallenge: string;
+  action?: "chat" | "email_brief";
 }
 ```
 
@@ -877,24 +873,14 @@ interface ChatResponse {
   type:
     | "chat_response"
     | "email_confirmation"
-    | "validation_error"
     | "service_error";
   reply: string;
   sessionId: string;
-  brief?: OpportunityBrief;
+  action?: "chat" | "email_brief";
+  brief?: BriefPatch;
+  emailStatus?: "sent" | "failed";
+  emailMessage?: string;
   progress?: DiscoveryProgress;
-  action?: EmailActionResult | null;
-}
-```
-
-Email action result:
-
-```typescript
-interface EmailActionResult {
-  name: "send_conversation_summary";
-  status: "completed" | "failed";
-  recipient?: string;
-  completedAt?: string;
 }
 ```
 
@@ -982,13 +968,11 @@ The interface button should send:
 
 ## UI stages
 
-The frontend may progressively display:
+The frontend displays a single honest processing state while awaiting the
+workflow result:
 
 ```text
-reviewing
-structuring
-preparing
-sending
+processing
 ```
 
 These are processing indicators only.
@@ -998,15 +982,18 @@ These are processing indicators only.
 Set email status to `success` only when the API response contains:
 
 ```typescript
-action.status === "completed"
+emailStatus === "sent"
 ```
+
+Do not infer delivery from `success`, `type`, `reply`, or a legacy action
+object. A response without explicit `emailStatus` becomes a neutral result.
 
 ## Failure condition
 
 Set email status to `failed` when:
 
 ```typescript
-action.status === "failed"
+emailStatus === "failed"
 ```
 
 or when the API request fails.
@@ -1159,6 +1146,7 @@ const chatRequestSchema = z.object({
   companyName: z.string().trim().min(1).max(120),
   role: workspaceRoleSchema,
   initialChallenge: z.string().trim().min(1).max(1500),
+  action: z.enum(["chat", "email_brief"]).optional(),
 });
 ```
 
@@ -1181,7 +1169,7 @@ interface N8nChatRequest {
   companyName: string;
   role: WorkspaceRole;
   initialChallenge: string;
-  action: "chat";
+  action: "chat" | "email_brief";
   metadata: {
     source: "vantagebrief-web";
     requestId: string;
@@ -1328,14 +1316,11 @@ Do not allow an unlimited request duration.
 {
   "success": true,
   "type": "email_confirmation",
-  "reply": "Your conversation brief was sent successfully.",
+  "reply": "The email workflow completed.",
   "sessionId": "session-id",
-  "action": {
-    "name": "send_conversation_summary",
-    "status": "completed",
-    "recipient": "dsh••••@gmail.com",
-    "completedAt": "2026-07-30T16:00:00.000Z"
-  }
+  "action": "email_brief",
+  "emailStatus": "sent",
+  "emailMessage": "Delivery was confirmed by the email workflow."
 }
 ```
 
@@ -1345,14 +1330,17 @@ Do not allow an unlimited request duration.
 {
   "success": false,
   "type": "service_error",
-  "reply": "Your brief was prepared, but the email could not be sent.",
+  "reply": "The email workflow could not complete.",
   "sessionId": "session-id",
-  "action": {
-    "name": "send_conversation_summary",
-    "status": "failed"
-  }
+  "action": "email_brief",
+  "emailStatus": "failed",
+  "emailMessage": "Delivery could not be confirmed."
 }
 ```
+
+The n8n workflow must set `emailStatus` to `"sent"` only after Gmail reports
+successful delivery. Missing or malformed optional brief and email fields are
+discarded safely while a valid reply-only response remains compatible.
 
 ---
 

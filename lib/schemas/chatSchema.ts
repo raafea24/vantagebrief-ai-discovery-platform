@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { onboardingSchema } from "@/lib/schemas/onboardingSchema";
 
+export const chatActionSchema = z.enum(["chat", "email_brief"]);
+export const emailDeliveryStatusSchema = z.enum(["sent", "failed"]);
+
 const sessionIdSchema = z
   .string()
   .trim()
@@ -38,16 +41,24 @@ export const chatRequestSchema = z
     companyName: onboardingSchema.shape.companyName,
     role: onboardingSchema.shape.role,
     initialChallenge: onboardingSchema.shape.challenge,
+    action: chatActionSchema.optional(),
   })
   .strict();
 
 export const chatApiResponseSchema = z
   .object({
-    success: z.literal(true),
-    type: z.literal("chat_response"),
+    success: z.boolean(),
+    type: z.enum([
+      "chat_response",
+      "email_confirmation",
+      "service_error",
+    ]),
     reply: z.string().trim().min(1).max(12_000),
     sessionId: sessionIdSchema,
-    briefPatch: briefPatchSchema.optional(),
+    action: chatActionSchema.optional(),
+    brief: briefPatchSchema.optional(),
+    emailStatus: emailDeliveryStatusSchema.optional(),
+    emailMessage: z.string().trim().min(1).max(1000).optional(),
   })
   .strict();
 
@@ -121,9 +132,32 @@ export const n8nChatResponseSchema = z
     sessionId: sessionIdSchema,
     brief: z
       .union([briefPatchSchema, n8nStructuredBriefSchema])
-      .optional(),
+      .optional()
+      .catch(undefined),
     progress: z.unknown().optional(),
-    action: z.unknown().nullable().optional(),
+    action: z
+      .union([
+        chatActionSchema,
+        z
+          .object({
+            name: z.string().trim().min(1).max(100),
+            status: z.enum(["completed", "failed"]),
+            recipient: z.string().trim().min(1).max(254).optional(),
+            completedAt: z.iso.datetime().optional(),
+          })
+          .passthrough(),
+      ])
+      .nullable()
+      .optional()
+      .catch(undefined),
+    emailStatus: emailDeliveryStatusSchema.optional().catch(undefined),
+    emailMessage: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1000)
+      .optional()
+      .catch(undefined),
   })
   .passthrough();
 

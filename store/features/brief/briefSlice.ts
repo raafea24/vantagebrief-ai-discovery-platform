@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { BriefPatch, BriefState } from "@/types/workspace";
 import { sendConversationMessage } from "@/store/features/conversation/conversationThunks";
+import { sendBriefEmail } from "@/store/features/email/emailThunks";
 
 export const initialBriefState: BriefState = {
   status: "pending",
@@ -17,14 +18,84 @@ function uniqueValues(existing: string[], incoming: string[]) {
   return Array.from(new Set([...existing, ...incoming]));
 }
 
-function applyBriefPatch(state: BriefState, patch: BriefPatch) {
+function hasText(value: string | null) {
+  return Boolean(value?.trim());
+}
+
+function updateBriefStatuses(state: BriefState) {
+  const requiredSections = [
+    {
+      complete: hasText(state.businessContext.value),
+      setStatus: (status: BriefState["businessContext"]["status"]) => {
+        state.businessContext.status = status;
+      },
+    },
+    {
+      complete: hasText(state.primaryChallenge.value),
+      setStatus: (status: BriefState["primaryChallenge"]["status"]) => {
+        state.primaryChallenge.status = status;
+      },
+    },
+    {
+      complete: state.currentWorkflow.value.length > 0,
+      setStatus: (status: BriefState["currentWorkflow"]["status"]) => {
+        state.currentWorkflow.status = status;
+      },
+    },
+    {
+      complete: state.requirements.value.length > 0,
+      setStatus: (status: BriefState["requirements"]["status"]) => {
+        state.requirements.status = status;
+      },
+    },
+    {
+      complete: hasText(state.recommendedDirection.value),
+      setStatus: (status: BriefState["recommendedDirection"]["status"]) => {
+        state.recommendedDirection.status = status;
+      },
+    },
+    {
+      complete: hasText(state.nextStep.value),
+      setStatus: (status: BriefState["nextStep"]["status"]) => {
+        state.nextStep.status = status;
+      },
+    },
+  ];
+  const firstIncompleteIndex = requiredSections.findIndex(
+    (section) => !section.complete,
+  );
+
+  requiredSections.forEach((section, index) => {
+    section.setStatus(
+      section.complete
+        ? "complete"
+        : index === firstIncompleteIndex
+          ? "current"
+          : "pending",
+    );
+  });
+
+  state.openQuestions.status = state.openQuestions.value.length
+    ? "complete"
+    : "pending";
+
+  if (firstIncompleteIndex === -1) {
+    state.status = "complete";
+    return;
+  }
+
+  state.status = requiredSections.some((section) => section.complete)
+    ? "current"
+    : "pending";
+}
+
+export function applyBriefPatch(state: BriefState, patch: BriefPatch) {
   if (patch.businessContext) {
     state.businessContext.value = patch.businessContext;
   }
 
   if (patch.primaryChallenge) {
     state.primaryChallenge.value = patch.primaryChallenge;
-    state.primaryChallenge.status = "current";
   }
 
   if (patch.currentWorkflow?.length) {
@@ -32,8 +103,6 @@ function applyBriefPatch(state: BriefState, patch: BriefPatch) {
       state.currentWorkflow.value,
       patch.currentWorkflow,
     );
-    state.currentWorkflow.status = "current";
-    state.primaryChallenge.status = "complete";
   }
 
   if (patch.requirements?.length) {
@@ -41,43 +110,24 @@ function applyBriefPatch(state: BriefState, patch: BriefPatch) {
       state.requirements.value,
       patch.requirements,
     );
-    state.requirements.status = "current";
-    state.currentWorkflow.status = "complete";
   }
 
   if (patch.recommendedDirection) {
     state.recommendedDirection.value = patch.recommendedDirection;
-    state.recommendedDirection.status = "current";
-    state.requirements.status = "complete";
   }
 
   if (patch.openQuestions?.length) {
-    state.openQuestions.value = patch.openQuestions;
-    state.openQuestions.status = "current";
+    state.openQuestions.value = uniqueValues(
+      state.openQuestions.value,
+      patch.openQuestions,
+    );
   }
 
   if (patch.nextStep) {
     state.nextStep.value = patch.nextStep;
-    state.nextStep.status = "current";
   }
 
-  const isComplete =
-    state.primaryChallenge.value &&
-    state.currentWorkflow.value.length > 0 &&
-    state.requirements.value.length > 0 &&
-    state.recommendedDirection.value &&
-    state.nextStep.value;
-
-  state.status = isComplete ? "complete" : "current";
-
-  if (isComplete) {
-    state.primaryChallenge.status = "complete";
-    state.currentWorkflow.status = "complete";
-    state.requirements.status = "complete";
-    state.recommendedDirection.status = "complete";
-    state.openQuestions.status = "complete";
-    state.nextStep.status = "complete";
-  }
+  updateBriefStatuses(state);
 }
 
 const briefSlice = createSlice({
@@ -92,11 +142,17 @@ const briefSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase(sendConversationMessage.fulfilled, (state, action) => {
-      if (action.payload.briefPatch) {
-        applyBriefPatch(state, action.payload.briefPatch);
-      }
-    });
+    builder
+      .addCase(sendConversationMessage.fulfilled, (state, action) => {
+        if (action.payload.briefPatch) {
+          applyBriefPatch(state, action.payload.briefPatch);
+        }
+      })
+      .addCase(sendBriefEmail.fulfilled, (state, action) => {
+        if (action.payload.briefPatch) {
+          applyBriefPatch(state, action.payload.briefPatch);
+        }
+      });
   },
 });
 

@@ -14,7 +14,7 @@ function createChatResponse(
       type: "chat_response",
       reply,
       sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
-      briefPatch: {
+      brief: {
         primaryChallenge: "A workflow handoff needs clarification.",
       },
     }),
@@ -63,6 +63,71 @@ function seedCompletedWorkspace() {
         updatedAt: "2026-07-31T08:00:00.000Z",
         status: "active",
         hydrationStatus: "ready",
+      },
+    }),
+  );
+}
+
+function seedActiveWorkspace() {
+  seedCompletedWorkspace();
+  const saved = JSON.parse(
+    window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "{}",
+  );
+
+  window.localStorage.setItem(
+    WORKSPACE_STORAGE_KEY,
+    JSON.stringify({
+      ...saved,
+      workspace: {
+        mode: "active",
+        discoveryStage: "requirements",
+      },
+      conversation: {
+        draft: "",
+        messages: [
+          {
+            id: "e5c6f233-10fb-430f-856f-20d0c241dba4",
+            sender: "user",
+            content: "Our reporting handoffs are unclear.",
+            createdAt: "2026-07-31T08:01:00.000Z",
+            status: "sent",
+          },
+          {
+            id: "7de3120e-df82-4e38-8fb6-f4eff18a802c",
+            sender: "assistant",
+            content: "Which handoff causes the most delay?",
+            createdAt: "2026-07-31T08:01:01.000Z",
+            status: "sent",
+          },
+        ],
+        requestStatus: "idle",
+        pendingRequestId: null,
+        failedRequest: null,
+      },
+      brief: {
+        status: "current",
+        businessContext: {
+          value: "Northstar coordinates a complex reporting process.",
+          status: "complete",
+        },
+        primaryChallenge: {
+          value: "Reporting ownership is unclear.",
+          status: "complete",
+        },
+        currentWorkflow: {
+          value: ["Reports move between operations and finance."],
+          status: "complete",
+        },
+        requirements: {
+          value: ["Clarify ownership at each handoff."],
+          status: "current",
+        },
+        recommendedDirection: { value: null, status: "pending" },
+        openQuestions: {
+          value: ["Who approves the final report?"],
+          status: "complete",
+        },
+        nextStep: { value: null, status: "pending" },
       },
     }),
   );
@@ -291,6 +356,159 @@ describe("WorkspaceApp onboarding", () => {
     expect(
       screen.queryByText("We couldn't continue the discovery."),
     ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires confirmation and shows success only for explicit sent status", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            type: "email_confirmation",
+            reply: "The email workflow completed.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "sent",
+            emailMessage: "Delivery was confirmed by the email workflow.",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    const emailButton = await screen.findByRole("button", {
+      name: "Email Brief",
+    });
+    await user.click(emailButton);
+
+    expect(
+      screen.getByRole("dialog", { name: "Email this Opportunity Brief?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/jor.*@northstar\.example/)).toBeInTheDocument();
+    expect(
+      screen.queryByText("jordan@northstar.example"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+    expect(fetch).not.toHaveBeenCalled();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(emailButton).toHaveFocus();
+    await user.click(emailButton);
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(
+      await screen.findByText("Your brief has been sent."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Our reporting handoffs are unclear."),
+    ).toBeInTheDocument();
+
+    const request = vi.mocked(fetch).mock.calls[0][0] as Request;
+    await expect(request.clone().json()).resolves.toMatchObject({
+      action: "email_brief",
+      email: "jordan@northstar.example",
+      message:
+        "Send me a structured summary of our conversation by email.",
+    });
+  });
+
+  it("shows a neutral result when delivery is not explicitly confirmed", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            type: "chat_response",
+            reply: "The request was processed.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Email Brief" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(
+      await screen.findByText("Delivery was not confirmed."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Your brief has been sent."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves the workspace and retries a failed email request", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: false,
+            type: "service_error",
+            reply: "The email workflow could not complete.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "failed",
+            emailMessage: "Delivery could not be confirmed.",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            type: "email_confirmation",
+            reply: "The email workflow completed.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "sent",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Email Brief" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+
+    expect(
+      await screen.findByText("The brief could not be emailed."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Which handoff causes the most delay?"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByText("Your brief has been sent."),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

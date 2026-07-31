@@ -719,13 +719,49 @@
   font-weight: 400;
 }
 
-.briefPanel > header > span {
+.briefHeaderActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.briefHeaderActions > span {
   flex: none;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 0.35rem 0.55rem;
   color: var(--color-ink-muted);
   font-size: 0.54rem;
+}
+
+.briefHeaderActions > button {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.7rem;
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.briefHeaderActions > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.briefHeaderActions > button:focus-visible,
+.emailStatus button:focus-visible,
+.emailDialog button:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
 }
 
 .briefIntroduction {
@@ -766,6 +802,59 @@
   color: var(--color-ink-muted);
   font-size: 0.58rem;
   line-height: 1.55;
+}
+
+.emailStatus {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 0.65rem;
+  margin: 0.8rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--color-brass) 5%, var(--color-surface));
+  color: var(--color-brass);
+}
+
+.emailStatus strong {
+  display: block;
+  color: var(--color-ink);
+  font-size: 0.62rem;
+}
+
+.emailStatus p {
+  margin: 0.2rem 0 0;
+  color: var(--color-ink-muted);
+  font-size: 0.55rem;
+  line-height: 1.5;
+}
+
+.emailStatus button {
+  display: inline-flex;
+  min-height: 1.9rem;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.54rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.emailStatusSuccess {
+  border-color: color-mix(in srgb, var(--color-success) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 7%, var(--color-surface));
+  color: var(--color-success);
+}
+
+.emailStatusError {
+  border-color: color-mix(in srgb, var(--color-danger) 25%, var(--color-border));
+  color: var(--color-danger);
 }
 
 .briefSections {
@@ -856,6 +945,93 @@
 
 .mobileTabs {
   display: none;
+}
+
+.dialogBackdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: rgb(7 22 40 / 42%);
+}
+
+.emailDialog {
+  width: min(28rem, 100%);
+  border: 1px solid color-mix(in srgb, var(--color-brass) 42%, var(--color-border));
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  background: var(--color-canvas);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-ink);
+}
+
+.emailDialogIcon {
+  display: grid;
+  width: 2.7rem;
+  height: 2.7rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-brass) 10%, var(--color-surface));
+  color: var(--color-brass);
+}
+
+.emailDialogEyebrow {
+  margin: var(--space-4) 0 0;
+  color: var(--color-brass);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.emailDialog h2 {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display), serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.emailDialog > p:last-of-type {
+  margin: 0.75rem 0 0;
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.emailDialog > p strong {
+  color: var(--color-ink);
+  font-weight: 750;
+}
+
+.emailDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: 1.25rem;
+}
+
+.emailDialogActions button {
+  min-height: 2.65rem;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.emailDialogCancel {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.emailDialogConfirm {
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-surface);
 }
 
 @media (max-width: 68rem) {
@@ -1071,6 +1247,15 @@
     width: 100%;
   }
 
+  .briefPanel > header {
+    align-items: flex-start;
+  }
+
+  .briefHeaderActions {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
   .mobileHidden {
     display: none;
   }
@@ -1130,6 +1315,43 @@
 
   .workspaceHeader > div:first-child > span {
     max-width: 14rem;
+  }
+
+  .briefPanel > header {
+    flex-direction: column;
+  }
+
+  .briefHeaderActions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .emailStatus {
+    grid-template-columns: auto 1fr;
+  }
+
+  .emailStatus button {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .dialogBackdrop {
+    align-items: end;
+    padding: var(--space-3);
+  }
+
+  .emailDialog {
+    padding: 1.25rem;
+  }
+
+  .emailDialogActions {
+    flex-direction: column-reverse;
+  }
+
+  .emailDialogActions button {
+    width: 100%;
   }
 
   .emptyConversation h1 {

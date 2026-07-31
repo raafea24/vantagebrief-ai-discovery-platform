@@ -1,5 +1,8 @@
 import type { BriefPatch, WorkspaceRole } from "@/types/workspace";
 
+export type ChatAction = "chat" | "email_brief";
+export type EmailDeliveryStatus = "sent" | "failed";
+
 export interface ChatApiRequest {
   message: string;
   sessionId: string;
@@ -8,14 +11,18 @@ export interface ChatApiRequest {
   companyName: string;
   role: WorkspaceRole;
   initialChallenge: string;
+  action?: ChatAction;
 }
 
 export interface ChatApiResponse {
-  success: true;
-  type: "chat_response";
+  success: boolean;
+  type: "chat_response" | "email_confirmation" | "service_error";
   reply: string;
   sessionId: string;
-  briefPatch?: BriefPatch;
+  action?: ChatAction;
+  brief?: BriefPatch;
+  emailStatus?: EmailDeliveryStatus;
+  emailMessage?: string;
 }
 
 export type PublicChatErrorCode =

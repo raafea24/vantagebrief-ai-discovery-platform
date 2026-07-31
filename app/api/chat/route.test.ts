@@ -76,6 +76,33 @@ describe("POST /api/chat", () => {
     });
   });
 
+  it("validates and forwards an explicit email brief action", async () => {
+    vi.mocked(sendN8nChatRequest).mockResolvedValue({
+      success: true,
+      type: "email_confirmation",
+      reply: "The email workflow completed.",
+      sessionId: validBody.sessionId,
+      action: "email_brief",
+      emailStatus: "sent",
+      emailMessage: "Delivery was confirmed.",
+    });
+
+    const response = await POST(
+      createRequest(
+        JSON.stringify({ ...validBody, action: "email_brief" }),
+      ),
+    );
+
+    expect(sendN8nChatRequest).toHaveBeenCalledWith({
+      ...validBody,
+      action: "email_brief",
+    });
+    expect(await response.json()).toMatchObject({
+      emailStatus: "sent",
+      emailMessage: "Delivery was confirmed.",
+    });
+  });
+
   it("normalizes timeout errors without exposing internal details", async () => {
     vi.mocked(sendN8nChatRequest).mockRejectedValue(
       new N8nClientError("timeout"),

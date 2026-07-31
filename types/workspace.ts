@@ -105,3 +105,17 @@ export interface BriefPatch {
   recommendedDirection?: string;
   nextStep?: string;
 }
+
+export type EmailRequestStatus =
+  | "idle"
+  | "processing"
+  | "success"
+  | "neutral"
+  | "failed";
+
+export interface EmailState {
+  status: EmailRequestStatus;
+  maskedRecipient: string | null;
+  message: string | null;
+  error: string | null;
+}

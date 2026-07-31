@@ -13,9 +13,9 @@ Codex must not begin a later phase, add future features, or redesign an approved
 # Current Project Status
 
 ```text
-Current phase: Phase 5 — API and n8n Integration
-Current screen: Secure conversation request flow
-Implementation status: Implemented — awaiting environment configuration, live verification, approval, and merge
+Current phase: Phase 6 — Structured Brief and Email Experience
+Current screen: Opportunity Brief and explicit email delivery
+Implementation status: Implemented — awaiting n8n email-status contract update, live verification, approval, and merge
 Production deployment: Not started
 n8n workflow status: Functional and published
 ```
@@ -1184,6 +1184,8 @@ Extend the n8n workflow to return:
 - `brief`
 - `progress`
 - `action`
+- `emailStatus`
+- `emailMessage`
 
 The frontend must not infer the brief from assistant prose.
 
@@ -1229,6 +1231,9 @@ The `Email brief` button sends:
 }
 ```
 
+The request must preserve the validated onboarding fields and session ID used
+by normal chat requests.
+
 The n8n agent must:
 
 1. Review memory
@@ -1241,22 +1246,24 @@ The n8n agent must:
 
 ## Email processing states
 
-The interface may display:
+The interface displays:
 
 ```text
-Reviewing the conversation
-Structuring the brief
-Preparing the email
-Sending through Gmail
+Processing
 ```
 
-These are progress labels only.
+This is a progress label only.
 
 Do not display final success until the backend returns:
 
-```text
-action.status = completed
+```json
+{
+  "emailStatus": "sent"
+}
 ```
+
+An action result, success flag, or assistant reply without this explicit field
+must remain neutral and must not claim delivery.
 
 ---
 

@@ -73,7 +73,7 @@ describe("sendN8nChatRequest", () => {
 
     const result = await sendN8nChatRequest(request);
 
-    expect(result.briefPatch).toEqual({
+    expect(result.brief).toEqual({
       businessContext: "Acme prepares operational reports.",
       primaryChallenge: "Reporting handoffs are unclear.",
       currentWorkflow: ["Analysts consolidate reports manually."],
@@ -118,7 +118,68 @@ describe("sendN8nChatRequest", () => {
       type: "chat_response",
       reply: "What happens after the report is approved?",
       sessionId: request.sessionId,
+      action: "chat",
     });
+  });
+
+  it("forwards an email action and requires explicit delivery status", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          type: "email_confirmation",
+          reply: "The email workflow completed.",
+          sessionId: request.sessionId,
+          emailStatus: "sent",
+          emailMessage: "Delivery was confirmed.",
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      sendN8nChatRequest({ ...request, action: "email_brief" }),
+    ).resolves.toMatchObject({
+      success: true,
+      type: "email_confirmation",
+      action: "email_brief",
+      emailStatus: "sent",
+      emailMessage: "Delivery was confirmed.",
+    });
+
+    const payload = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(payload).toMatchObject({
+      ...request,
+      action: "email_brief",
+    });
+  });
+
+  it("keeps a reply-only email response neutral", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            type: "chat_response",
+            reply: "The request was received.",
+            sessionId: request.sessionId,
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await sendN8nChatRequest({
+      ...request,
+      action: "email_brief",
+    });
+
+    expect(result.emailStatus).toBeUndefined();
+    expect(result.type).toBe("chat_response");
   });
 
   it("rejects webhook failures and malformed responses", async () => {

@@ -25,7 +25,7 @@ export class N8nClientError extends Error {
 }
 
 interface N8nChatPayload extends ValidatedChatRequest {
-  action: "chat";
+  action: "chat" | "email_brief";
   metadata: {
     source: "vantagebrief-web";
     requestId: string;
@@ -104,7 +104,7 @@ export async function sendN8nChatRequest(
   );
   const payload: N8nChatPayload = {
     ...request,
-    action: "chat",
+    action: request.action ?? "chat",
     metadata: {
       source: "vantagebrief-web",
       requestId: randomUUID(),
@@ -154,9 +154,17 @@ export async function sendN8nChatRequest(
 
   if (
     !parsedResponse.success ||
-    !parsedResponse.data.success ||
-    parsedResponse.data.type !== "chat_response" ||
     parsedResponse.data.sessionId !== request.sessionId
+  ) {
+    throw new N8nClientError("malformed_response");
+  }
+
+  const requestedAction = request.action ?? "chat";
+
+  if (
+    requestedAction === "chat" &&
+    (!parsedResponse.data.success ||
+      parsedResponse.data.type !== "chat_response")
   ) {
     throw new N8nClientError("malformed_response");
   }
@@ -164,12 +172,28 @@ export async function sendN8nChatRequest(
   const briefPatch = parsedResponse.data.brief
     ? normalizeBrief(parsedResponse.data.brief)
     : undefined;
+  const normalizedType =
+    requestedAction === "chat"
+      ? "chat_response"
+      : parsedResponse.data.emailStatus === "sent"
+        ? "email_confirmation"
+        : parsedResponse.data.emailStatus === "failed" ||
+            !parsedResponse.data.success
+          ? "service_error"
+          : "chat_response";
 
   return {
-    success: true,
-    type: "chat_response",
+    success: parsedResponse.data.success,
+    type: normalizedType,
     reply: parsedResponse.data.reply,
     sessionId: parsedResponse.data.sessionId,
-    ...(briefPatch ? { briefPatch } : {}),
+    action: requestedAction,
+    ...(briefPatch ? { brief: briefPatch } : {}),
+    ...(parsedResponse.data.emailStatus
+      ? { emailStatus: parsedResponse.data.emailStatus }
+      : {}),
+    ...(parsedResponse.data.emailMessage
+      ? { emailMessage: parsedResponse.data.emailMessage }
+      : {}),
   };
 }

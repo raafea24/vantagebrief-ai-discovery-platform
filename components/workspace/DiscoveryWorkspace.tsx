@@ -2,12 +2,15 @@
 
 import { PencilLine } from "lucide-react";
 import { useState } from "react";
+import { maskEmail } from "@/lib/email";
 import { createWorkspaceSessionId } from "@/lib/session";
 import { selectBrief } from "@/store/features/brief/briefSelectors";
 import { selectConversation } from "@/store/features/conversation/conversationSelectors";
 import { setMessageDraft } from "@/store/features/conversation/conversationSlice";
 import { sendConversationMessage } from "@/store/features/conversation/conversationThunks";
 import { selectSession } from "@/store/features/session/sessionSelectors";
+import { selectEmail } from "@/store/features/email/emailSelectors";
+import { sendBriefEmail } from "@/store/features/email/emailThunks";
 import { editOnboarding } from "@/store/features/user/userSlice";
 import { selectWorkspace } from "@/store/features/workspace/workspaceSelectors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -16,6 +19,7 @@ import { ConversationEmptyState } from "./ConversationEmptyState";
 import { ConversationErrorState } from "./ConversationErrorState";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { DiscoveryProgress } from "./DiscoveryProgress";
+import { EmailBriefDialog } from "./EmailBriefDialog";
 import { MessageComposer } from "./MessageComposer";
 import { MobileWorkspaceSwitcher } from "./MobileWorkspaceSwitcher";
 import { OpportunityBriefPanel } from "./OpportunityBriefPanel";
@@ -45,10 +49,13 @@ export function DiscoveryWorkspace({ user }: DiscoveryWorkspaceProps) {
   const workspace = useAppSelector(selectWorkspace);
   const brief = useAppSelector(selectBrief);
   const session = useAppSelector(selectSession);
+  const email = useAppSelector(selectEmail);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversation");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const firstName = user.fullName.split(/\s+/)[0];
   const isActive = conversation.messages.length > 0;
   const isPending = conversation.requestStatus === "pending";
+  const isEmailProcessing = email.status === "processing";
 
   function createMessage(content: string): LocalUserMessage {
     return {
@@ -88,6 +95,11 @@ export function DiscoveryWorkspace({ user }: DiscoveryWorkspaceProps) {
         retry: true,
       }),
     );
+  }
+
+  function requestBriefEmail() {
+    setEmailDialogOpen(false);
+    void dispatch(sendBriefEmail());
   }
 
   return (
@@ -163,7 +175,7 @@ export function DiscoveryWorkspace({ user }: DiscoveryWorkspaceProps) {
 
             <MessageComposer
               value={conversation.draft}
-              disabled={isPending}
+              disabled={isPending || isEmailProcessing}
               onChange={(value) => dispatch(setMessageDraft(value))}
               onSubmit={submitMessage}
             />
@@ -178,12 +190,23 @@ export function DiscoveryWorkspace({ user }: DiscoveryWorkspaceProps) {
             brief={brief}
             user={user}
             isActive={isActive}
+            email={email}
+            emailDisabled={isPending || isEmailProcessing}
+            onEmailBrief={() => setEmailDialogOpen(true)}
+            onRetryEmail={() => void dispatch(sendBriefEmail())}
             className={
               mobilePanel !== "brief" ? styles.mobileHidden : undefined
             }
           />
         </div>
       </div>
+
+      <EmailBriefDialog
+        open={emailDialogOpen}
+        maskedEmail={maskEmail(user.email)}
+        onCancel={() => setEmailDialogOpen(false)}
+        onConfirm={requestBriefEmail}
+      />
     </div>
   );
 }

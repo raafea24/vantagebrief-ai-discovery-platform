@@ -1,6 +1,12 @@
-import { FileText } from "lucide-react";
-import type { BriefField, BriefState, UserState } from "@/types/workspace";
+import { FileText, Mail } from "lucide-react";
+import type {
+  BriefField,
+  BriefState,
+  EmailState,
+  UserState,
+} from "@/types/workspace";
 import { BriefSection } from "./BriefSection";
+import { EmailBriefStatus } from "./EmailBriefStatus";
 import { roleLabels } from "./workspaceContent";
 import styles from "./DiscoveryWorkspace.module.css";
 
@@ -30,11 +36,19 @@ export function OpportunityBriefPanel({
   brief,
   user,
   isActive,
+  email,
+  emailDisabled,
+  onEmailBrief,
+  onRetryEmail,
   className = "",
 }: {
   brief: BriefState;
   user: UserState;
   isActive: boolean;
+  email: EmailState;
+  emailDisabled: boolean;
+  onEmailBrief: () => void;
+  onRetryEmail: () => void;
   className?: string;
 }) {
   const businessContext =
@@ -54,7 +68,21 @@ export function OpportunityBriefPanel({
           <p>Structured output</p>
           <h2 id="brief-title">Opportunity Brief</h2>
         </div>
-        <span>{brief.status === "pending" ? "Not started" : brief.status}</span>
+        <div className={styles.briefHeaderActions}>
+          <span>
+            {brief.status === "pending" ? "Not started" : brief.status}
+          </span>
+          {isActive ? (
+            <button
+              type="button"
+              disabled={emailDisabled}
+              onClick={onEmailBrief}
+            >
+              <Mail size={14} strokeWidth={1.7} aria-hidden="true" />
+              Email Brief
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {!isActive ? (
@@ -74,6 +102,8 @@ export function OpportunityBriefPanel({
           discovery progresses.
         </p>
       )}
+
+      <EmailBriefStatus email={email} onRetry={onRetryEmail} />
 
       <div className={styles.briefSections}>
         <BriefSection label="Business Context" status="complete">
