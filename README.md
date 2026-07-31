@@ -11,9 +11,9 @@ It provides a guided AI discovery experience, maintains conversation context, or
 ## Product Status
 
 ```text
-Development status: In progress
-Current phase: Project Foundation
-Deployment status: Not deployed
+Development status: Phase 6 complete; Phase 7 quality assurance in progress
+Current phase: Quality Assurance and Deployment
+Deployment status: Awaiting verified production deployment
 n8n workflow: Functional and published
 ```
 
@@ -357,6 +357,12 @@ npm run build
 ```
 
 Creates the production Next.js build.
+
+The complete Phase 7 quality gate and deployment-verification checklist is documented in:
+
+```text
+docs/PHASE_7_QA.md
+```
 
 ```bash
 npm run start
