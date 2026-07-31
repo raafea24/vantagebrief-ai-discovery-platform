@@ -14,6 +14,28 @@ const request = {
   initialChallenge: "Reporting takes too long.",
 };
 
+const completeBrief = {
+  businessContext: "Acme prepares monthly operational reports.",
+  primaryChallenge: "Reporting handoffs are unclear.",
+  currentWorkflow: ["Analysts consolidate reports manually."],
+  requirements: ["Centralize reporting inputs."],
+  recommendedDirection: "Map and simplify the reporting workflow.",
+  openQuestions: ["Which report should be piloted first?"],
+  nextStep: "Run a workflow-mapping session.",
+};
+
+const emailRequest = {
+  message: "Send the current Opportunity Brief.",
+  sessionId: request.sessionId,
+  userName: "Alex Morgan",
+  userEmail: "alex@example.com",
+  companyName: request.companyName,
+  role: request.role,
+  initialChallenge: request.initialChallenge,
+  action: "email_brief" as const,
+  brief: completeBrief,
+};
+
 function setTestEnvironment(timeout = "60000") {
   process.env.N8N_WEBHOOK_URL = "https://automation.example/webhook/chat";
   process.env.N8N_WEBHOOK_SECRET = "test-secret";
@@ -126,12 +148,14 @@ describe("sendN8nChatRequest", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
+          httpStatus: 200,
           success: true,
           type: "email_confirmation",
-          reply: "The email workflow completed.",
+          action: "email_brief",
+          reply: "Your Opportunity Brief has been sent to your email.",
           sessionId: request.sessionId,
           emailStatus: "sent",
-          emailMessage: "Delivery was confirmed.",
+          emailMessage: "The Opportunity Brief was emailed successfully.",
         }),
         { status: 200 },
       ),
@@ -139,33 +163,70 @@ describe("sendN8nChatRequest", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      sendN8nChatRequest({ ...request, action: "email_brief" }),
+      sendN8nChatRequest(emailRequest),
     ).resolves.toMatchObject({
+      httpStatus: 200,
       success: true,
       type: "email_confirmation",
       action: "email_brief",
       emailStatus: "sent",
-      emailMessage: "Delivery was confirmed.",
+      emailMessage: "The Opportunity Brief was emailed successfully.",
     });
 
     const payload = JSON.parse(
       (fetchMock.mock.calls[0][1] as RequestInit).body as string,
     );
     expect(payload).toMatchObject({
-      ...request,
-      action: "email_brief",
+      ...emailRequest,
+      brief: completeBrief,
     });
+    expect(payload).not.toHaveProperty("name");
+    expect(payload).not.toHaveProperty("email");
   });
 
-  it("keeps a reply-only email response neutral", async () => {
+  it("normalizes the production email failure contract", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
+            httpStatus: 502,
+            success: false,
+            type: "service_error",
+            action: "email_brief",
+            emailStatus: "failed",
+            emailMessage: "The Opportunity Brief could not be emailed.",
+            reply: "The brief could not be emailed. Please try again.",
+            sessionId: request.sessionId,
+          }),
+          { status: 502 },
+        ),
+      ),
+    );
+
+    await expect(sendN8nChatRequest(emailRequest)).resolves.toEqual({
+      httpStatus: 502,
+      success: false,
+      type: "service_error",
+      action: "email_brief",
+      emailStatus: "failed",
+      emailMessage: "The Opportunity Brief could not be emailed.",
+      reply: "The brief could not be emailed. Please try again.",
+      sessionId: request.sessionId,
+    });
+  });
+
+  it("rejects malformed email confirmation responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            httpStatus: 200,
             success: true,
-            type: "chat_response",
-            reply: "The request was received.",
+            type: "email_confirmation",
+            action: "email_brief",
+            reply: "The email workflow completed.",
             sessionId: request.sessionId,
           }),
           { status: 200 },
@@ -173,13 +234,9 @@ describe("sendN8nChatRequest", () => {
       ),
     );
 
-    const result = await sendN8nChatRequest({
-      ...request,
-      action: "email_brief",
+    await expect(sendN8nChatRequest(emailRequest)).rejects.toMatchObject({
+      kind: "malformed_response",
     });
-
-    expect(result.emailStatus).toBeUndefined();
-    expect(result.type).toBe("chat_response");
   });
 
   it("rejects webhook failures and malformed responses", async () => {
@@ -224,5 +281,16 @@ describe("sendN8nChatRequest", () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     await result;
+  });
+
+  it("normalizes network failures without exposing request details", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("connection failed")),
+    );
+
+    await expect(sendN8nChatRequest(emailRequest)).rejects.toMatchObject({
+      kind: "network",
+    });
   });
 });

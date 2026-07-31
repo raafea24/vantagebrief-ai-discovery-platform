@@ -366,13 +366,14 @@ describe("WorkspaceApp onboarding", () => {
       vi.fn().mockResolvedValue(
         new Response(
           JSON.stringify({
+            httpStatus: 200,
             success: true,
             type: "email_confirmation",
-            reply: "The email workflow completed.",
+            reply: "Your Opportunity Brief has been sent to your email.",
             sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
             action: "email_brief",
             emailStatus: "sent",
-            emailMessage: "Delivery was confirmed by the email workflow.",
+            emailMessage: "The Opportunity Brief was emailed successfully.",
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),
@@ -410,17 +411,30 @@ describe("WorkspaceApp onboarding", () => {
     expect(
       screen.getByText("Our reporting handoffs are unclear."),
     ).toBeInTheDocument();
+    expect(emailButton).toBeDisabled();
 
     const request = vi.mocked(fetch).mock.calls[0][0] as Request;
     await expect(request.clone().json()).resolves.toMatchObject({
       action: "email_brief",
-      email: "jordan@northstar.example",
+      userName: "Jordan Lee",
+      userEmail: "jordan@northstar.example",
       message:
         "Send me a structured summary of our conversation by email.",
+      brief: {
+        businessContext: "Northstar coordinates a complex reporting process.",
+        primaryChallenge: "Reporting ownership is unclear.",
+        currentWorkflow: ["Reports move between operations and finance."],
+        requirements: ["Clarify ownership at each handoff."],
+        recommendedDirection: null,
+        openQuestions: ["Who approves the final report?"],
+        nextStep: null,
+      },
     });
+    await expect(request.clone().json()).resolves.not.toHaveProperty("name");
+    await expect(request.clone().json()).resolves.not.toHaveProperty("email");
   });
 
-  it("shows a neutral result when delivery is not explicitly confirmed", async () => {
+  it("shows a failure when delivery is not explicitly confirmed", async () => {
     const user = userEvent.setup();
     vi.stubGlobal(
       "fetch",
@@ -448,7 +462,7 @@ describe("WorkspaceApp onboarding", () => {
     );
 
     expect(
-      await screen.findByText("Delivery was not confirmed."),
+      await screen.findByText("The brief could not be emailed."),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("Your brief has been sent."),
@@ -462,26 +476,29 @@ describe("WorkspaceApp onboarding", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
+            httpStatus: 502,
             success: false,
             type: "service_error",
-            reply: "The email workflow could not complete.",
+            reply: "The brief could not be emailed. Please try again.",
             sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
             action: "email_brief",
             emailStatus: "failed",
-            emailMessage: "Delivery could not be confirmed.",
+            emailMessage: "The Opportunity Brief could not be emailed.",
           }),
-          { status: 200, headers: { "content-type": "application/json" } },
+          { status: 502, headers: { "content-type": "application/json" } },
         ),
       )
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
+            httpStatus: 200,
             success: true,
             type: "email_confirmation",
-            reply: "The email workflow completed.",
+            reply: "Your Opportunity Brief has been sent to your email.",
             sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
             action: "email_brief",
             emailStatus: "sent",
+            emailMessage: "The Opportunity Brief was emailed successfully.",
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),

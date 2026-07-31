@@ -33,17 +33,36 @@ function createReadyStore() {
 }
 
 function emailResponse(emailStatus?: "sent" | "failed") {
+  const sent = emailStatus === "sent";
+  const failed = emailStatus === "failed";
+
   return new Response(
     JSON.stringify({
-      success: emailStatus !== "failed",
-      type:
-        emailStatus === "sent" ? "email_confirmation" : "service_error",
-      reply: "The email workflow completed.",
+      httpStatus: failed ? 502 : 200,
+      success: !failed,
+      type: sent
+        ? "email_confirmation"
+        : failed
+          ? "service_error"
+          : "chat_response",
+      reply: sent
+        ? "Your Opportunity Brief has been sent to your email."
+        : failed
+          ? "The brief could not be emailed. Please try again."
+          : "The request was processed.",
       sessionId,
       action: "email_brief",
       ...(emailStatus ? { emailStatus } : {}),
+      ...(sent
+        ? { emailMessage: "The Opportunity Brief was emailed successfully." }
+        : failed
+          ? { emailMessage: "The Opportunity Brief could not be emailed." }
+          : {}),
     }),
-    { status: 200, headers: { "content-type": "application/json" } },
+    {
+      status: failed ? 502 : 200,
+      headers: { "content-type": "application/json" },
+    },
   );
 }
 
@@ -77,6 +96,13 @@ describe("emailSlice", () => {
     resolveResponse?.(emailResponse("sent"));
     await firstRequest;
 
+    const repeatedRequest = await store.dispatch(sendBriefEmail());
+
+    expect(repeatedRequest.meta.requestStatus).toBe("rejected");
+    expect(
+      "condition" in repeatedRequest.meta && repeatedRequest.meta.condition,
+    ).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(store.getState().email).toMatchObject({
       status: "success",
       maskedRecipient: "ale••@example.com",
@@ -84,7 +110,7 @@ describe("emailSlice", () => {
     });
   });
 
-  it("does not infer delivery success from a reply-only response", async () => {
+  it("treats a response without explicit sent status as a failure", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(emailResponse()),
@@ -93,7 +119,7 @@ describe("emailSlice", () => {
 
     await store.dispatch(sendBriefEmail());
 
-    expect(store.getState().email.status).toBe("neutral");
+    expect(store.getState().email.status).toBe("failed");
   });
 
   it("stores a retryable failure without changing conversation or brief", async () => {
@@ -110,5 +136,22 @@ describe("emailSlice", () => {
     expect(store.getState().email.status).toBe("failed");
     expect(store.getState().conversation).toEqual(conversationBefore);
     expect(store.getState().brief).toEqual(briefBefore);
+  });
+
+  it("shows a retryable failure after a network error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("network unavailable")),
+    );
+    const store = createReadyStore();
+
+    await store.dispatch(sendBriefEmail());
+
+    expect(store.getState().email).toMatchObject({
+      status: "failed",
+      message: null,
+      error:
+        "The email request could not be completed. Your conversation and brief are preserved.",
+    });
   });
 });

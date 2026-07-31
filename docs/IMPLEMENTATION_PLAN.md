@@ -15,9 +15,9 @@ Codex must not begin a later phase, add future features, or redesign an approved
 ```text
 Current phase: Phase 6 — Structured Brief and Email Experience
 Current screen: Opportunity Brief and explicit email delivery
-Implementation status: Implemented — awaiting n8n email-status contract update, live verification, approval, and merge
+Implementation status: Production contract integrated — awaiting final website verification, approval, and merge
 Production deployment: Not started
-n8n workflow status: Functional and published
+n8n workflow status: Published with explicit email_brief routing and direct Gmail delivery
 ```
 
 Update this section whenever a phase is approved or completed.
@@ -1227,20 +1227,35 @@ The `Email brief` button sends:
 ```json
 {
   "action": "email_brief",
-  "message": "Send me a structured summary of our conversation by email."
+  "message": "Send me a structured summary of our conversation by email.",
+  "sessionId": "active-session-id",
+  "userName": "Validated user name",
+  "userEmail": "validated@example.com",
+  "companyName": "Validated company",
+  "role": "operations",
+  "initialChallenge": "Validated onboarding challenge",
+  "brief": {
+    "businessContext": "Current business context",
+    "primaryChallenge": "Current primary challenge",
+    "currentWorkflow": [],
+    "requirements": [],
+    "recommendedDirection": null,
+    "openQuestions": [],
+    "nextStep": null
+  }
 }
 ```
 
-The request must preserve the validated onboarding fields and session ID used
-by normal chat requests.
+The request sends the validated onboarding fields, active session ID, and the
+complete current structured brief through `/api/chat`.
 
-The n8n agent must:
+The n8n workflow must:
 
-1. Review memory
-2. Create the summary
-3. Call Gmail
+1. Route `action: "email_brief"` to the dedicated email branch
+2. Build the email from the supplied structured brief
+3. Execute the direct Gmail node once
 4. Wait for Gmail success
-5. Return confirmed action data
+5. Return the typed email response contract
 
 ---
 
@@ -1254,16 +1269,17 @@ Processing
 
 This is a progress label only.
 
-Do not display final success until the backend returns:
+Do not display final success until the backend returns both:
 
 ```json
 {
+  "success": true,
   "emailStatus": "sent"
 }
 ```
 
-An action result, success flag, or assistant reply without this explicit field
-must remain neutral and must not claim delivery.
+Every other response, malformed response, timeout, or network failure must use
+the existing email failure state and must not claim delivery.
 
 ---
 
@@ -1336,7 +1352,7 @@ Test:
 Perform only deliberate tests:
 
 1. Email request using a real session
-2. Gmail tool execution
+2. Direct Gmail node execution
 3. Email received successfully
 4. HTML summary content verified
 5. Failure behavior verified once
@@ -1539,7 +1555,7 @@ The demonstration must show:
 - Conversation memory
 - n8n workflow
 - Email brief request
-- Gmail tool execution
+- Direct Gmail node execution
 - Email received
 - Website success confirmation
 

@@ -3,18 +3,43 @@ import type { BriefPatch, WorkspaceRole } from "@/types/workspace";
 export type ChatAction = "chat" | "email_brief";
 export type EmailDeliveryStatus = "sent" | "failed";
 
-export interface ChatApiRequest {
+export interface StructuredBriefPayload {
+  businessContext: string | null;
+  primaryChallenge: string | null;
+  currentWorkflow: string[];
+  requirements: string[];
+  recommendedDirection: string | null;
+  openQuestions: string[];
+  nextStep: string | null;
+}
+
+interface ChatApiRequestBase {
   message: string;
   sessionId: string;
-  name: string;
-  email: string;
   companyName: string;
   role: WorkspaceRole;
   initialChallenge: string;
-  action?: ChatAction;
 }
 
+export interface ConversationChatApiRequest extends ChatApiRequestBase {
+  action?: "chat";
+  name: string;
+  email: string;
+}
+
+export interface EmailBriefChatApiRequest extends ChatApiRequestBase {
+  action: "email_brief";
+  userName: string;
+  userEmail: string;
+  brief: StructuredBriefPayload;
+}
+
+export type ChatApiRequest =
+  | ConversationChatApiRequest
+  | EmailBriefChatApiRequest;
+
 export interface ChatApiResponse {
+  httpStatus?: number;
   success: boolean;
   type: "chat_response" | "email_confirmation" | "service_error";
   reply: string;

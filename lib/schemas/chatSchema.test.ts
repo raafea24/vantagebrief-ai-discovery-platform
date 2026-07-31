@@ -15,6 +15,28 @@ const validRequest = {
   initialChallenge: "  Reporting takes too long.  ",
 };
 
+const validBrief = {
+  businessContext: "Acme prepares monthly operational reports.",
+  primaryChallenge: "Reporting takes too long.",
+  currentWorkflow: ["Analysts consolidate data manually."],
+  requirements: ["Centralize reporting inputs."],
+  recommendedDirection: "Map and simplify the reporting workflow.",
+  openQuestions: ["Which report should be piloted first?"],
+  nextStep: "Run a workflow-mapping session.",
+};
+
+const validEmailRequest = {
+  message: "Send the current Opportunity Brief.",
+  sessionId: validRequest.sessionId,
+  userName: "  Alex Morgan  ",
+  userEmail: "ALEX@EXAMPLE.COM",
+  companyName: "  Acme Solutions  ",
+  role: "operations",
+  initialChallenge: "  Reporting takes too long.  ",
+  action: "email_brief",
+  brief: validBrief,
+};
+
 describe("chat schemas", () => {
   it("normalizes and validates a complete browser request", () => {
     expect(chatRequestSchema.parse(validRequest)).toEqual({
@@ -80,21 +102,42 @@ describe("chat schemas", () => {
 
   it("validates the email action and explicit email response fields", () => {
     expect(
-      chatRequestSchema.parse({
+      chatRequestSchema.parse(validEmailRequest),
+    ).toMatchObject({
+      action: "email_brief",
+      userName: "Alex Morgan",
+      userEmail: "alex@example.com",
+      brief: validBrief,
+    });
+    expect(
+      chatRequestSchema.safeParse({
         ...validRequest,
         action: "email_brief",
-      }).action,
-    ).toBe("email_brief");
+      }).success,
+    ).toBe(false);
     expect(
       chatApiResponseSchema.safeParse({
+        httpStatus: 200,
         success: true,
         type: "email_confirmation",
-        reply: "The email workflow completed.",
+        reply: "Your Opportunity Brief has been sent to your email.",
         sessionId: validRequest.sessionId,
         action: "email_brief",
         emailStatus: "sent",
-        emailMessage: "Delivery was confirmed.",
+        emailMessage: "The Opportunity Brief was emailed successfully.",
       }).success,
     ).toBe(true);
+    expect(
+      n8nChatResponseSchema.parse({
+        httpStatus: 502,
+        success: false,
+        type: "service_error",
+        reply: "The brief could not be emailed. Please try again.",
+        sessionId: validRequest.sessionId,
+        action: "email_brief",
+        emailStatus: "failed",
+        emailMessage: "The Opportunity Brief could not be emailed.",
+      }).emailStatus,
+    ).toBe("failed");
   });
 });

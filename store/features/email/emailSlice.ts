@@ -36,21 +36,12 @@ const emailSlice = createSlice({
           return;
         }
 
-        if (action.payload.outcome === "failed") {
-          state.status = "failed";
-          state.maskedRecipient = action.payload.maskedRecipient;
-          state.message = null;
-          state.error =
-            action.payload.message ??
-            "Your brief could not be emailed. Please try again.";
-          return;
-        }
-
-        state.status = "neutral";
+        state.status = "failed";
         state.maskedRecipient = action.payload.maskedRecipient;
-        state.message =
-          "The request completed without a delivery confirmation. You can try again.";
-        state.error = null;
+        state.message = null;
+        state.error =
+          action.payload.message ??
+          "Your brief could not be emailed. Please try again.";
       })
       .addCase(sendBriefEmail.rejected, (state, action) => {
         if (action.meta.condition) {

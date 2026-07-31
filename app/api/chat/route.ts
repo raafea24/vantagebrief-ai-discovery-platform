@@ -11,7 +11,7 @@ import type {
   PublicChatErrorCode,
 } from "@/types/chat";
 
-const MAX_REQUEST_BYTES = 16_384;
+const MAX_REQUEST_BYTES = 131_072;
 
 const publicErrors: Record<PublicChatErrorCode, PublicChatError> = {
   VALIDATION_ERROR: {
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     const response = await sendN8nChatRequest(parsedRequest.data);
 
     return NextResponse.json(response, {
-      status: 200,
+      status: response.httpStatus ?? 200,
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {

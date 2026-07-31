@@ -110,7 +110,6 @@ export type EmailRequestStatus =
   | "idle"
   | "processing"
   | "success"
-  | "neutral"
   | "failed";
 
 export interface EmailState {

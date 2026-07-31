@@ -32,21 +32,53 @@ export const briefPatchSchema = z
   })
   .strict();
 
-export const chatRequestSchema = z
+export const structuredBriefPayloadSchema = z
   .object({
-    message: z.string().trim().min(1).max(4000),
-    sessionId: sessionIdSchema,
-    name: onboardingSchema.shape.fullName,
-    email: onboardingSchema.shape.email,
-    companyName: onboardingSchema.shape.companyName,
-    role: onboardingSchema.shape.role,
-    initialChallenge: onboardingSchema.shape.challenge,
-    action: chatActionSchema.optional(),
+    businessContext: z.string().trim().min(1).max(4000).nullable(),
+    primaryChallenge: z.string().trim().min(1).max(4000).nullable(),
+    currentWorkflow: z.array(z.string().trim().min(1).max(1000)).max(30),
+    requirements: z.array(z.string().trim().min(1).max(1000)).max(30),
+    recommendedDirection: z.string().trim().min(1).max(4000).nullable(),
+    openQuestions: z.array(z.string().trim().min(1).max(1000)).max(30),
+    nextStep: z.string().trim().min(1).max(4000).nullable(),
   })
   .strict();
 
+const chatRequestBase = {
+  message: z.string().trim().min(1).max(4000),
+  sessionId: sessionIdSchema,
+  companyName: onboardingSchema.shape.companyName,
+  role: onboardingSchema.shape.role,
+  initialChallenge: onboardingSchema.shape.challenge,
+};
+
+const conversationChatRequestSchema = z
+  .object({
+    ...chatRequestBase,
+    name: onboardingSchema.shape.fullName,
+    email: onboardingSchema.shape.email,
+    action: z.literal("chat").optional(),
+  })
+  .strict();
+
+const emailBriefChatRequestSchema = z
+  .object({
+    ...chatRequestBase,
+    userName: onboardingSchema.shape.fullName,
+    userEmail: onboardingSchema.shape.email,
+    action: z.literal("email_brief"),
+    brief: structuredBriefPayloadSchema,
+  })
+  .strict();
+
+export const chatRequestSchema = z.union([
+  emailBriefChatRequestSchema,
+  conversationChatRequestSchema,
+]);
+
 export const chatApiResponseSchema = z
   .object({
+    httpStatus: z.number().int().min(100).max(599).optional(),
     success: z.boolean(),
     type: z.enum([
       "chat_response",
@@ -121,6 +153,13 @@ export const n8nStructuredBriefSchema = z
 
 export const n8nChatResponseSchema = z
   .object({
+    httpStatus: z
+      .number()
+      .int()
+      .min(100)
+      .max(599)
+      .optional()
+      .catch(undefined),
     success: z.boolean(),
     type: z.enum([
       "chat_response",
@@ -135,21 +174,7 @@ export const n8nChatResponseSchema = z
       .optional()
       .catch(undefined),
     progress: z.unknown().optional(),
-    action: z
-      .union([
-        chatActionSchema,
-        z
-          .object({
-            name: z.string().trim().min(1).max(100),
-            status: z.enum(["completed", "failed"]),
-            recipient: z.string().trim().min(1).max(254).optional(),
-            completedAt: z.iso.datetime().optional(),
-          })
-          .passthrough(),
-      ])
-      .nullable()
-      .optional()
-      .catch(undefined),
+    action: chatActionSchema.nullable().optional().catch(undefined),
     emailStatus: emailDeliveryStatusSchema.optional().catch(undefined),
     emailMessage: z
       .string()

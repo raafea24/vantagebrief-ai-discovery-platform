@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   CheckCircle2,
-  CircleEllipsis,
   LoaderCircle,
   RotateCcw,
 } from "lucide-react";
@@ -47,22 +46,6 @@ export function EmailBriefStatus({
               : ""}
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (email.status === "neutral") {
-    return (
-      <div className={styles.emailStatus} role="status">
-        <CircleEllipsis size={17} strokeWidth={1.7} aria-hidden="true" />
-        <div>
-          <strong>Delivery was not confirmed.</strong>
-          <p>{email.message}</p>
-        </div>
-        <button type="button" onClick={onRetry}>
-          <RotateCcw size={14} strokeWidth={1.8} aria-hidden="true" />
-          Try again
-        </button>
       </div>
     );
   }

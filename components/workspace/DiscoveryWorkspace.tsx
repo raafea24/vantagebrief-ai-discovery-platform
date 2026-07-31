@@ -191,7 +191,9 @@ export function DiscoveryWorkspace({ user }: DiscoveryWorkspaceProps) {
             user={user}
             isActive={isActive}
             email={email}
-            emailDisabled={isPending || isEmailProcessing}
+            emailDisabled={
+              isPending || isEmailProcessing || email.status === "success"
+            }
             onEmailBrief={() => setEmailDialogOpen(true)}
             onRetryEmail={() => void dispatch(sendBriefEmail())}
             className={

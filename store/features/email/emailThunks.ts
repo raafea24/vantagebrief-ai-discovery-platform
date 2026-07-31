@@ -3,18 +3,33 @@ import { maskEmail } from "@/lib/email";
 import type { RootState } from "@/store";
 import { chatApi } from "@/store/api/chatApi";
 import { getSafeChatErrorMessage } from "@/store/api/chatError";
-import type { BriefPatch } from "@/types/workspace";
+import type { StructuredBriefPayload } from "@/types/chat";
+import type { BriefPatch, BriefState } from "@/types/workspace";
 
 const EMAIL_BRIEF_MESSAGE =
   "Send me a structured summary of our conversation by email.";
 
-export type EmailOutcome = "sent" | "failed" | "unconfirmed";
+export type EmailOutcome = "sent" | "failed";
 
 export interface SendBriefEmailResult {
   outcome: EmailOutcome;
   maskedRecipient: string;
   message?: string;
   briefPatch?: BriefPatch;
+}
+
+function createStructuredBriefPayload(
+  brief: BriefState,
+): StructuredBriefPayload {
+  return {
+    businessContext: brief.businessContext.value,
+    primaryChallenge: brief.primaryChallenge.value,
+    currentWorkflow: brief.currentWorkflow.value,
+    requirements: brief.requirements.value,
+    recommendedDirection: brief.recommendedDirection.value,
+    openQuestions: brief.openQuestions.value,
+    nextStep: brief.nextStep.value,
+  };
 }
 
 export const sendBriefEmail = createAsyncThunk<
@@ -39,12 +54,13 @@ export const sendBriefEmail = createAsyncThunk<
           {
             message: EMAIL_BRIEF_MESSAGE,
             sessionId,
-            name: state.user.fullName,
-            email: state.user.email,
+            userName: state.user.fullName,
+            userEmail: state.user.email,
             companyName: state.user.companyName,
             role: state.user.role,
             initialChallenge: state.user.challenge,
             action: "email_brief",
+            brief: createStructuredBriefPayload(state.brief),
           },
           { track: false },
         ),
@@ -53,9 +69,7 @@ export const sendBriefEmail = createAsyncThunk<
       const outcome: EmailOutcome =
         result.emailStatus === "sent" && result.success
           ? "sent"
-          : result.emailStatus === "failed" || !result.success
-            ? "failed"
-            : "unconfirmed";
+          : "failed";
 
       return {
         outcome,
@@ -78,6 +92,7 @@ export const sendBriefEmail = createAsyncThunk<
 
       return (
         state.email.status !== "processing" &&
+        state.email.status !== "success" &&
         state.conversation.requestStatus !== "pending"
       );
     },
