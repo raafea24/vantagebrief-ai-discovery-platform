@@ -22,7 +22,7 @@ interface ChatApiRequestBase {
 }
 
 export interface ConversationChatApiRequest extends ChatApiRequestBase {
-  action?: "chat";
+  action: "chat";
   name: string;
   email: string;
 }

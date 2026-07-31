@@ -153,6 +153,7 @@ test("discovery completes, restores the brief hash and confirms explicit email d
 
   expect(requests).toHaveLength(2);
   expect(requests[0]).toMatchObject({
+    action: "chat",
     message: "Map our reporting workflow and ownership.",
   });
   expect(requests[0].sessionId).toEqual(expect.any(String));
@@ -163,10 +164,86 @@ test("discovery completes, restores the brief hash and confirms explicit email d
   });
   expect(JSON.stringify(requests)).not.toContain("N8N_WEBHOOK");
 
+  await page
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Orders arrive through email, WhatsApp and phone calls.");
+  await page.getByRole("button", { name: "Submit discovery message" }).click();
+  await expect.poll(() => requests.length).toBe(3);
+  expect(requests[2]).toMatchObject({
+    action: "chat",
+    message: "Orders arrive through email, WhatsApp and phone calls.",
+  });
+
   await page.reload();
   await expect(page).toHaveURL(/\/workspace#brief-panel$/);
   await expect(page.getByText("Opportunity Brief sent")).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Continue the discovery after restoring this session.");
+  await page.getByRole("button", { name: "Submit discovery message" }).click();
+  await expect.poll(() => requests.length).toBe(4);
+  expect(requests[3]).toMatchObject({
+    action: "chat",
+    message: "Continue the discovery after restoring this session.",
+  });
+});
+
+test("failed discovery retry remains chat-only and does not duplicate the message", async ({
+  page,
+}) => {
+  const sessionId = "7d3ea5ad-acde-4c47-9d83-67099ac36cf7";
+  const requests: Array<Record<string, unknown>> = [];
+
+  await page.route("**/api/chat", async (route) => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    requests.push(body);
+
+    if (requests.length === 1) {
+      await fulfillJson(
+        route,
+        {
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message:
+              "The discovery service is temporarily unavailable. Please try again shortly.",
+            retryable: true,
+          },
+        },
+        503,
+      );
+      return;
+    }
+
+    await fulfillJson(route, {
+      success: true,
+      type: "chat_response",
+      reply: "Which coordination step causes the longest delay?",
+      sessionId,
+      action: "chat",
+    });
+  });
+
+  await page.goto("/workspace");
+  await completeOnboarding(page);
+  const message = "Manual coordination is delaying customer orders.";
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill(message);
+  await page.getByRole("button", { name: "Submit discovery message" }).click();
+
+  await expect(page.getByText("We couldn't continue the discovery.")).toBeVisible();
+  await expect(page.getByText("Not sent")).toBeVisible();
+  await page.getByRole("button", { name: "Retry" }).click();
+
+  await expect(
+    page.getByText("Which coordination step causes the longest delay?"),
+  ).toBeVisible();
+  await expect(page.getByText("Not sent")).toBeHidden();
+  await expect(page.getByText(message)).toHaveCount(1);
   expect(requests).toHaveLength(2);
+  expect(requests[0]).toMatchObject({ action: "chat", message });
+  expect(requests[1]).toMatchObject({ action: "chat", message });
+  expect(requests.some((request) => request.action === "email_brief")).toBe(
+    false,
+  );
 });
 
 test("unconfirmed email delivery shows failure and permits a real retry", async ({ page }) => {

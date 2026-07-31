@@ -17,8 +17,13 @@ type N8nFailureKind =
   | "webhook"
   | "malformed_response";
 
+type N8nDiagnosticErrorCategory = N8nFailureKind | "email_delivery";
+
 export class N8nClientError extends Error {
-  constructor(public readonly kind: N8nFailureKind) {
+  constructor(
+    public readonly kind: N8nFailureKind,
+    public readonly requestId?: string,
+  ) {
     super(kind);
     this.name = "N8nClientError";
   }
@@ -28,6 +33,47 @@ interface N8nRequestMetadata {
   source: "vantagebrief-web";
   requestId: string;
   timestamp: string;
+}
+
+interface N8nDiagnostic {
+  requestId: string;
+  action: ValidatedChatRequest["action"];
+  httpStatus: number | null;
+  upstreamDurationMs: number;
+  responseType: string | null;
+  replyExists: boolean;
+  briefExists: boolean;
+  errorCategory: N8nDiagnosticErrorCategory | null;
+}
+
+function responseSummary(responseBody: unknown) {
+  if (!responseBody || typeof responseBody !== "object") {
+    return {
+      responseType: null,
+      replyExists: false,
+      briefExists: false,
+    };
+  }
+
+  const value = responseBody as Record<string, unknown>;
+
+  return {
+    responseType: typeof value.type === "string" ? value.type : null,
+    replyExists:
+      typeof value.reply === "string" && value.reply.trim().length > 0,
+    briefExists: value.brief !== undefined && value.brief !== null,
+  };
+}
+
+function logN8nDiagnostic(diagnostic: N8nDiagnostic) {
+  const message = "VantageBrief n8n request";
+
+  if (diagnostic.errorCategory) {
+    console.warn(message, diagnostic);
+    return;
+  }
+
+  console.info(message, diagnostic);
 }
 
 function normalizeBrief(brief: unknown): BriefPatch | undefined {
@@ -86,12 +132,38 @@ export function mapN8nErrorCode(
 export async function sendN8nChatRequest(
   request: ValidatedChatRequest,
 ): Promise<ChatApiResponse> {
-  let environment: ReturnType<typeof getServerEnvironment>;
+  const requestId = randomUUID();
+  const startedAt = Date.now();
+  let environment!: ReturnType<typeof getServerEnvironment>;
+
+  const logResult = (
+    errorCategory: N8nDiagnosticErrorCategory | null,
+    httpStatus: number | null,
+    responseBody?: unknown,
+  ) => {
+    logN8nDiagnostic({
+      requestId,
+      action: request.action,
+      httpStatus,
+      upstreamDurationMs: Date.now() - startedAt,
+      ...responseSummary(responseBody),
+      errorCategory,
+    });
+  };
+
+  const fail = (
+    kind: N8nFailureKind,
+    httpStatus: number | null,
+    responseBody?: unknown,
+  ): never => {
+    logResult(kind, httpStatus, responseBody);
+    throw new N8nClientError(kind, requestId);
+  };
 
   try {
     environment = getServerEnvironment();
   } catch {
-    throw new N8nClientError("environment");
+    fail("environment", null);
   }
 
   const controller = new AbortController();
@@ -101,18 +173,18 @@ export async function sendN8nChatRequest(
   );
   const metadata: N8nRequestMetadata = {
     source: "vantagebrief-web",
-    requestId: randomUUID(),
+    requestId,
     timestamp: new Date().toISOString(),
   };
   const payload = {
     ...request,
-    action: request.action ?? "chat",
+    action: request.action,
     metadata: {
       ...metadata,
     },
   };
 
-  let response: Response;
+  let response!: Response;
 
   try {
     response = await fetch(environment.N8N_WEBHOOK_URL, {
@@ -131,9 +203,9 @@ export async function sendN8nChatRequest(
       controller.signal.aborted ||
       (error instanceof Error && error.name === "AbortError")
     ) {
-      throw new N8nClientError("timeout");
+      fail("timeout", null);
     }
-    throw new N8nClientError("network");
+    fail("network", null);
   } finally {
     clearTimeout(timeout);
   }
@@ -143,42 +215,46 @@ export async function sendN8nChatRequest(
   try {
     responseBody = await response.json();
   } catch {
-    throw new N8nClientError(
-      response.ok ? "malformed_response" : "webhook",
-    );
+    fail(response.ok ? "malformed_response" : "webhook", response.status);
   }
 
   const parsedResponse = n8nChatResponseSchema.safeParse(responseBody);
 
-  if (
-    !parsedResponse.success ||
-    parsedResponse.data.sessionId !== request.sessionId
-  ) {
-    throw new N8nClientError("malformed_response");
+  if (!parsedResponse.success || !parsedResponse.data) {
+    logResult("malformed_response", response.status, responseBody);
+    throw new N8nClientError("malformed_response", requestId);
   }
 
-  const requestedAction = request.action ?? "chat";
+  const parsedData = parsedResponse.data;
 
-  const briefPatch = parsedResponse.data.brief
-    ? normalizeBrief(parsedResponse.data.brief)
+  if (parsedData.sessionId !== request.sessionId) {
+    fail("malformed_response", response.status, responseBody);
+  }
+
+  const requestedAction = request.action;
+
+  const briefPatch = parsedData.brief
+    ? normalizeBrief(parsedData.brief)
     : undefined;
 
   if (requestedAction === "chat") {
     if (!response.ok) {
-      throw new N8nClientError("webhook");
+      fail("webhook", response.status, responseBody);
     }
     if (
-      !parsedResponse.data.success ||
-      parsedResponse.data.type !== "chat_response"
+      !parsedData.success ||
+      parsedData.type !== "chat_response"
     ) {
-      throw new N8nClientError("malformed_response");
+      fail("malformed_response", response.status, responseBody);
     }
+
+    logResult(null, response.status, responseBody);
 
     return {
       success: true,
       type: "chat_response",
-      reply: parsedResponse.data.reply,
-      sessionId: parsedResponse.data.sessionId,
+      reply: parsedData.reply,
+      sessionId: parsedData.sessionId,
       action: "chat",
       ...(briefPatch ? { brief: briefPatch } : {}),
     };
@@ -186,36 +262,44 @@ export async function sendN8nChatRequest(
 
   const isConfirmedSuccess =
     response.ok &&
-    parsedResponse.data.httpStatus === 200 &&
-    parsedResponse.data.success === true &&
-    parsedResponse.data.type === "email_confirmation" &&
-    parsedResponse.data.action === "email_brief" &&
-    parsedResponse.data.emailStatus === "sent";
+    parsedData.httpStatus === 200 &&
+    parsedData.success === true &&
+    parsedData.type === "email_confirmation" &&
+    parsedData.action === "email_brief" &&
+    parsedData.emailStatus === "sent";
   const isConfirmedFailure =
-    parsedResponse.data.httpStatus === 502 &&
-    parsedResponse.data.success === false &&
-    parsedResponse.data.type === "service_error" &&
-    parsedResponse.data.action === "email_brief" &&
-    parsedResponse.data.emailStatus === "failed" &&
+    parsedData.httpStatus === 502 &&
+    parsedData.success === false &&
+    parsedData.type === "service_error" &&
+    parsedData.action === "email_brief" &&
+    parsedData.emailStatus === "failed" &&
     (response.ok || response.status === 502);
 
   if (!isConfirmedSuccess && !isConfirmedFailure) {
-    throw new N8nClientError(
+    fail(
       response.ok ? "malformed_response" : "webhook",
+      response.status,
+      responseBody,
     );
   }
+
+  logResult(
+    isConfirmedSuccess ? null : "email_delivery",
+    response.status,
+    responseBody,
+  );
 
   return {
     httpStatus: isConfirmedSuccess ? 200 : 502,
     success: isConfirmedSuccess,
     type: isConfirmedSuccess ? "email_confirmation" : "service_error",
-    reply: parsedResponse.data.reply,
-    sessionId: parsedResponse.data.sessionId,
+    reply: parsedData.reply,
+    sessionId: parsedData.sessionId,
     action: "email_brief",
     ...(briefPatch ? { brief: briefPatch } : {}),
     emailStatus: isConfirmedSuccess ? "sent" : "failed",
-    ...(parsedResponse.data.emailMessage
-      ? { emailMessage: parsedResponse.data.emailMessage }
+    ...(parsedData.emailMessage
+      ? { emailMessage: parsedData.emailMessage }
       : {}),
   };
 }

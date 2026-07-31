@@ -46,6 +46,7 @@ export const sendConversationMessage = createAsyncThunk<
     try {
       const result = await dispatch(
         chatApi.endpoints.sendChatMessage.initiate({
+          action: "chat",
           message: message.content,
           sessionId,
           name: state.user.fullName,

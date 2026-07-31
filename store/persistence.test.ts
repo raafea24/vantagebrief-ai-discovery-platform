@@ -33,6 +33,44 @@ describe("workspace persistence", () => {
     expect(storage.removeItem).not.toHaveBeenCalled();
   });
 
+  it("does not restore a transient request action", () => {
+    const record = {
+      version: 1,
+      user: {
+        fullName: "Alex Morgan",
+        companyName: "Acme Solutions",
+        email: "alex@acmesolutions.com",
+        role: "operations",
+        challenge: "We need to improve coordination.",
+        onboardingCompleted: true,
+      },
+      session: {
+        sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+        createdAt: "2026-07-31T08:00:00.000Z",
+        updatedAt: "2026-07-31T08:00:00.000Z",
+        status: "active",
+        hydrationStatus: "ready",
+      },
+      conversation: {
+        draft: "",
+        messages: [],
+        requestStatus: "idle",
+        pendingRequestId: null,
+        failedRequest: null,
+        action: "email_brief",
+      },
+    };
+    const storage = {
+      getItem: vi.fn().mockReturnValue(JSON.stringify(record)),
+      removeItem: vi.fn(),
+    };
+
+    const restored = readPersistedWorkspace(storage);
+
+    expect(restored?.conversation).not.toHaveProperty("action");
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
   it("removes corrupt or invalid saved data", () => {
     const storage = {
       getItem: vi.fn().mockReturnValue('{"version":2}'),

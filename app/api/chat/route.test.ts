@@ -20,6 +20,7 @@ import {
 import { POST } from "./route";
 
 const validBody = {
+  action: "chat" as const,
   message: "Our reporting handoff is unclear.",
   sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
   name: "Alex Morgan",
@@ -159,4 +160,25 @@ describe("POST /api/chat", () => {
       },
     });
   });
+
+  it.each(["webhook", "malformed_response"] as const)(
+    "keeps %s failures retryable without exposing upstream details",
+    async (kind) => {
+      vi.mocked(sendN8nChatRequest).mockRejectedValue(
+        new N8nClientError(kind),
+      );
+
+      const response = await POST(createRequest(JSON.stringify(validBody)));
+
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({
+        error: {
+          code: "SERVICE_UNAVAILABLE",
+          message:
+            "The discovery service is temporarily unavailable. Please try again shortly.",
+          retryable: true,
+        },
+      });
+    },
+  );
 });

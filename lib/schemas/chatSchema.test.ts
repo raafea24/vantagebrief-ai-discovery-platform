@@ -6,6 +6,7 @@ import {
 } from "./chatSchema";
 
 const validRequest = {
+  action: "chat",
   message: "  Help us understand this workflow.  ",
   sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
   name: "  Alex Morgan  ",
@@ -40,6 +41,7 @@ const validEmailRequest = {
 describe("chat schemas", () => {
   it("normalizes and validates a complete browser request", () => {
     expect(chatRequestSchema.parse(validRequest)).toEqual({
+      action: "chat",
       message: "Help us understand this workflow.",
       sessionId: validRequest.sessionId,
       name: "Alex Morgan",
@@ -63,6 +65,13 @@ describe("chat schemas", () => {
         ...validRequest,
         action: "send_without_confirmation",
       }).success,
+    ).toBe(false);
+  });
+
+  it("requires an explicit action for every request", () => {
+    expect(
+      chatRequestSchema.safeParse({ ...validRequest, action: undefined })
+        .success,
     ).toBe(false);
   });
 

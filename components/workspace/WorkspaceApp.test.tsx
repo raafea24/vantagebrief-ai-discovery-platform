@@ -399,6 +399,7 @@ describe("WorkspaceApp onboarding", () => {
     const apiRequest = vi.mocked(fetch).mock.calls[0][0] as Request;
     expect(new URL(apiRequest.url).pathname).toBe("/api/chat");
     await expect(apiRequest.clone().json()).resolves.toMatchObject({
+      action: "chat",
       message:
         "Where is our current process slowing down? Please focus on handoffs.",
       sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
@@ -423,6 +424,96 @@ describe("WorkspaceApp onboarding", () => {
     });
   });
 
+  it("uses a fresh chat action after restoring a successful email state", async () => {
+    const user = userEvent.setup();
+    seedEmailedWorkspace();
+    renderWorkspace();
+
+    const message =
+      "We receive customer orders through email, WhatsApp and phone calls.";
+    const composer = await screen.findByRole("textbox", { name: "Message" });
+    await user.type(composer, message);
+    await user.click(
+      screen.getByRole("button", { name: "Submit discovery message" }),
+    );
+
+    await screen.findByText(
+      /What happens immediately before and after/,
+      {},
+      { timeout: 10_000 },
+    );
+    const request = vi.mocked(fetch).mock.calls[0][0] as Request;
+    await expect(request.clone().json()).resolves.toMatchObject({
+      action: "chat",
+      message,
+      name: "Jordan Lee",
+      email: "jordan@northstar.example",
+    });
+    await expect(request.clone().json()).resolves.not.toHaveProperty(
+      "userEmail",
+    );
+    expect(screen.getAllByText(message)).toHaveLength(1);
+  }, 15_000);
+
+  it("uses chat after an email succeeds in the same live session", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const request = input as Request;
+      const body = (await request.clone().json()) as { action: string };
+
+      if (body.action === "email_brief") {
+        return new Response(
+          JSON.stringify({
+            httpStatus: 200,
+            success: true,
+            type: "email_confirmation",
+            reply: "Your Opportunity Brief has been sent to your email.",
+            sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
+            action: "email_brief",
+            emailStatus: "sent",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      return createChatResponse("Discovery continued after email delivery.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    seedActiveWorkspace();
+    renderWorkspace();
+
+    await user.click(await screen.findByRole("button", { name: "Email Brief" }));
+    await user.click(
+      screen.getByRole("button", { name: "Confirm email brief" }),
+    );
+    await screen.findByText(
+      "Opportunity Brief sent",
+      {},
+      { timeout: 10_000 },
+    );
+
+    const composer = screen.getByRole("textbox", { name: "Message" });
+    await user.type(composer, "Continue discovery after sending the brief.");
+    await user.click(
+      screen.getByRole("button", { name: "Submit discovery message" }),
+    );
+    await screen.findByText(
+      "Discovery continued after email delivery.",
+      {},
+      { timeout: 10_000 },
+    );
+
+    const bodies = await Promise.all(
+      fetchMock.mock.calls.map(async ([input]) =>
+        (input as Request).clone().json(),
+      ),
+    );
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toMatchObject({ action: "email_brief" });
+    expect(bodies[1]).toMatchObject({ action: "chat" });
+    expect(bodies[1]).not.toHaveProperty("userEmail");
+  }, 15_000);
+
   it("preserves a failed draft and retries through the API integration", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -434,7 +525,7 @@ describe("WorkspaceApp onboarding", () => {
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
-    seedCompletedWorkspace();
+    seedActiveWorkspace();
     renderWorkspace();
 
     const composer = await screen.findByRole("textbox", { name: "Message" });
@@ -447,6 +538,12 @@ describe("WorkspaceApp onboarding", () => {
       await screen.findByText("We couldn't continue the discovery."),
     ).toBeInTheDocument();
     expect(composer).toHaveValue("Our handoffs are unclear.");
+    expect(
+      screen.getByText("Which handoff causes the most delay?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Reporting ownership is unclear."),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
@@ -459,6 +556,22 @@ describe("WorkspaceApp onboarding", () => {
       screen.queryByText("We couldn't continue the discovery."),
     ).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    const requests = await Promise.all(
+      fetchMock.mock.calls.map(async ([input]) =>
+        (input as Request).clone().json(),
+      ),
+    );
+    expect(requests[0]).toMatchObject({
+      action: "chat",
+      message: "Our handoffs are unclear.",
+    });
+    expect(requests[1]).toMatchObject({
+      action: "chat",
+      message: "Our handoffs are unclear.",
+    });
+    expect(requests[1]).not.toHaveProperty("userEmail");
+    expect(screen.getAllByText("Our handoffs are unclear.")).toHaveLength(1);
+    expect(screen.queryByText("Not sent")).not.toBeInTheDocument();
   });
 
   it("requires confirmation and shows success only for explicit sent status", async () => {

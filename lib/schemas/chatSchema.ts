@@ -57,7 +57,7 @@ const conversationChatRequestSchema = z
     ...chatRequestBase,
     name: onboardingSchema.shape.fullName,
     email: onboardingSchema.shape.email,
-    action: z.literal("chat").optional(),
+    action: z.literal("chat"),
   })
   .strict();
 

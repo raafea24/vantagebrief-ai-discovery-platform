@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 import { sendN8nChatRequest } from "./n8nClient";
 
 const request = {
+  action: "chat" as const,
   message: "Our reporting handoff is unclear.",
   sessionId: "3c0f66cf-8b0a-46a7-9dc2-89c6fc735b6e",
   name: "Alex Morgan",
@@ -45,6 +46,8 @@ function setTestEnvironment(timeout = "60000") {
 
 beforeEach(() => {
   setTestEnvironment();
+  vi.spyOn(console, "info").mockImplementation(() => undefined);
+  vi.spyOn(console, "warn").mockImplementation(() => undefined);
 });
 
 afterEach(() => {
@@ -257,6 +260,22 @@ describe("sendN8nChatRequest", () => {
       kind: "malformed_response",
     });
   });
+
+  it.each([502, 503])(
+    "classifies upstream %i responses as retryable webhook failures",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response("Upstream unavailable", { status }),
+        ),
+      );
+
+      await expect(sendN8nChatRequest(request)).rejects.toMatchObject({
+        kind: "webhook",
+      });
+    },
+  );
 
   it("aborts a request after the configured timeout", async () => {
     vi.useFakeTimers();
