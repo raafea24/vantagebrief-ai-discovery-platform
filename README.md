@@ -2,14 +2,14 @@
 
 VantageBrief is an AI-assisted client-discovery platform that turns business conversations into structured, decision-ready Opportunity Briefs.
 
-The application guides users through discovery, maintains session context, organizes important business information, and sends a completed brief by email only when explicitly requested.
+The application guides users through discovery, maintains session context, organizes important business information, and supports approval-driven brief delivery only when explicitly requested.
 
 ## Core capabilities
 
 - Guided business discovery with contextual follow-up questions
 - Structured Opportunity Brief generation and progressive updates
 - Session persistence across browser refreshes
-- Explicit, confirmed email delivery through n8n and Gmail
+- Approval-driven n8n/Gmail email requests with strict delivery-confirmation gating
 - Responsive landing page and discovery workspace
 - Secure server-side integration with validated requests and responses
 - Accessible keyboard, focus, dialog, status, and mobile interactions
@@ -23,7 +23,7 @@ The application guides users through discovery, maintains session context, organ
 - Zod
 - Vitest and React Testing Library
 - Playwright
-- n8n, Google Gemini, and Gmail
+- n8n orchestration with Google Gemini and Gmail as external workflow services
 - Vercel
 
 ## Routes
@@ -56,6 +56,13 @@ Webhook URLs, authentication secrets, Gmail credentials, and AI-provider credent
 - Node.js 20.9 or newer
 - npm
 - Git
+
+Clone this repository:
+
+```bash
+git clone https://github.com/raafea24/vantagebrief-ai-discovery-platform.git
+cd vantagebrief-ai-discovery-platform
+```
 
 ## Local setup
 
@@ -137,6 +144,10 @@ The application is configured for Vercel using the standard Next.js build settin
 Configure the four n8n environment variables in Vercel before testing `/api/chat`. Environment-variable changes require a new deployment.
 
 After deployment, verify the landing page, workspace, onboarding, discovery flow, session persistence, Opportunity Brief, email delivery, responsive behavior, browser console, and browser network security.
+
+## Integration status
+
+The repository implements the Next.js application, validated server-side n8n adapter, structured response contracts, local session recovery, and approval-gated email workflow. The n8n workflow itself, Gemini model configuration, Gmail credentials, and Vercel environment are external resources and are intentionally not included. Production deployment and live n8n, Gemini, and Gmail execution remain unverified external acceptance steps documented in `docs/PHASE_7_QA.md`.
 
 ## Security
 

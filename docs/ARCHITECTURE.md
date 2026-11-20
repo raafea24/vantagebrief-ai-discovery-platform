@@ -1654,13 +1654,13 @@ lib/email.ts
 Example:
 
 ```typescript
-maskEmail("dshaafea@gmail.com")
+maskEmail("alex.morgan@example.com")
 ```
 
 Expected output:
 
 ```text
-dsh••••@gmail.com
+ale••••••••@example.com
 ```
 
 Masking rules must handle:

@@ -245,7 +245,7 @@ npm run build
 Repository:
 
 ```text
-https://github.com/shaafeadawood/vantagebrief
+https://github.com/raafea24/vantagebrief-ai-discovery-platform
 ```
 
 ### Branch structure
@@ -323,7 +323,7 @@ Before modifying code:
 3. Confirm the configured remote points to:
 
 ```text
-https://github.com/shaafeadawood/vantagebrief
+https://github.com/raafea24/vantagebrief-ai-discovery-platform
 ```
 
 4. Update the local `development` branch.
